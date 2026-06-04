@@ -20,8 +20,7 @@ If you just want to use the app on your Android phone, you do not need to build 
 
 1. **Download the Installer (APK)**:
    - On your Android phone, open your web browser and click this direct download link:
-     [Download ShrutiMonitor-v1.0.apk (Direct Link)](https://github.com/YOUR_GITHUB_USERNAME/shruti-monitor-Android/raw/main/release/ShrutiMonitor-v1.0.apk)
-     *(Note: Replace `YOUR_GITHUB_USERNAME` in the link with your actual GitHub username once pushed)*.
+     [Download ShrutiMonitor-v1.0.apk (Direct Link)](https://github.com/hari2897/shruti-monitor-android/releases/download/v1.0/ShrutiMonitor-v1.0.apk)
    - Or, go to the **Releases** tab on this GitHub page and download the latest `.apk` file.
 
 2. **Open the File**:
