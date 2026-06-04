@@ -1,5 +1,4 @@
-# Shruti Monitor & High-Fidelity Tanpura Drone
-
+# Shruti Monitor 
 An advanced, high-performance Android application built for Indian classical musicians. It combines a real-time pitch monitor with a high-fidelity, sample-based Tanpura drone to support your daily practice (*riyaz*).
 
 ---
