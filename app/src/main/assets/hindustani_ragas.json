@@ -1,0 +1,326 @@
+[
+  {
+    "name": "Bhairav",
+    "thaat": "Bhairav",
+    "aaroha": [0, 1, 4, 5, 7, 8, 11],
+    "avaroha": [11, 8, 7, 5, 4, 1, 0],
+    "swaras": [0, 1, 4, 5, 7, 8, 11],
+    "vadi": 9,
+    "samvadi": 2
+  },
+  {
+    "name": "Yaman",
+    "thaat": "Kalyan",
+    "aaroha": [0, 2, 4, 6, 7, 9, 11],
+    "avaroha": [11, 9, 7, 6, 4, 2, 0],
+    "swaras": [0, 2, 4, 6, 7, 9, 11],
+    "vadi": 4,
+    "samvadi": 11
+  },
+  {
+    "name": "Yaman Kalyan",
+    "thaat": "Kalyan",
+    "aaroha": [0, 2, 4, 5, 6, 7, 9, 11],
+    "avaroha": [11, 9, 7, 6, 5, 4, 2, 0],
+    "swaras": [0, 2, 4, 5, 6, 7, 9, 11],
+    "vadi": 4,
+    "samvadi": 11
+  },
+  {
+    "name": "Bhimpalasi",
+    "thaat": "Kafi",
+    "aaroha": [0, 3, 5, 7, 10],
+    "avaroha": [10, 9, 7, 5, 3, 2, 0],
+    "swaras": [0, 2, 3, 5, 7, 9, 10],
+    "vadi": 5,
+    "samvadi": 0
+  },
+  {
+    "name": "Todi",
+    "thaat": "Todi",
+    "aaroha": [0, 1, 3, 6, 7, 8, 11],
+    "avaroha": [11, 8, 7, 6, 3, 1, 0],
+    "swaras": [0, 1, 3, 6, 7, 8, 11],
+    "vadi": 8,
+    "samvadi": 3
+  },
+  {
+    "name": "Miyan ki Todi",
+    "thaat": "Todi",
+    "aaroha": [0, 1, 3, 6, 7, 8, 11],
+    "avaroha": [11, 8, 7, 6, 3, 1, 0],
+    "swaras": [0, 1, 3, 6, 7, 8, 11],
+    "vadi": 8,
+    "samvadi": 3
+  },
+  {
+    "name": "Marwa",
+    "thaat": "Marwa",
+    "aaroha": [0, 1, 4, 6, 9, 11],
+    "avaroha": [11, 9, 6, 4, 1, 0],
+    "swaras": [0, 1, 4, 6, 9, 11],
+    "vadi": 9,
+    "samvadi": 2
+  },
+  {
+    "name": "Puriya",
+    "thaat": "Marwa",
+    "aaroha": [0, 1, 4, 6, 9, 11],
+    "avaroha": [11, 9, 6, 4, 1, 0],
+    "swaras": [0, 1, 4, 6, 9, 11],
+    "vadi": 4,
+    "samvadi": 11
+  },
+  {
+    "name": "Darbari Kanada",
+    "thaat": "Asavari",
+    "aaroha": [0, 2, 3, 5, 7, 8, 10],
+    "avaroha": [10, 8, 7, 5, 3, 2, 0],
+    "swaras": [0, 2, 3, 5, 7, 8, 10],
+    "vadi": 2,
+    "samvadi": 7
+  },
+  {
+    "name": "Malkauns",
+    "thaat": "Bhairavi",
+    "aaroha": [0, 3, 5, 8, 10],
+    "avaroha": [10, 8, 5, 3, 0],
+    "swaras": [0, 3, 5, 8, 10],
+    "vadi": 5,
+    "samvadi": 0
+  },
+  {
+    "name": "Bhupali",
+    "thaat": "Kalyan",
+    "aaroha": [0, 2, 4, 7, 9],
+    "avaroha": [9, 7, 4, 2, 0],
+    "swaras": [0, 2, 4, 7, 9],
+    "vadi": 4,
+    "samvadi": 9
+  },
+  {
+    "name": "Desh",
+    "thaat": "Khamaj",
+    "aaroha": [0, 2, 4, 5, 7, 9, 11],
+    "avaroha": [11, 10, 9, 7, 5, 4, 2, 0],
+    "swaras": [0, 2, 4, 5, 7, 9, 10, 11],
+    "vadi": 2,
+    "samvadi": 7
+  },
+  {
+    "name": "Khamaj",
+    "thaat": "Khamaj",
+    "aaroha": [0, 2, 4, 5, 7, 9, 11],
+    "avaroha": [11, 10, 9, 7, 5, 4, 2, 0],
+    "swaras": [0, 2, 4, 5, 7, 9, 10, 11],
+    "vadi": 4,
+    "samvadi": 0
+  },
+  {
+    "name": "Bilawal",
+    "thaat": "Bilawal",
+    "aaroha": [0, 2, 4, 5, 7, 9, 11],
+    "avaroha": [11, 9, 7, 5, 4, 2, 0],
+    "swaras": [0, 2, 4, 5, 7, 9, 11],
+    "vadi": 9,
+    "samvadi": 2
+  },
+  {
+    "name": "Kafi",
+    "thaat": "Kafi",
+    "aaroha": [0, 2, 3, 5, 7, 9, 10],
+    "avaroha": [10, 9, 7, 5, 3, 2, 0],
+    "swaras": [0, 2, 3, 5, 7, 9, 10],
+    "vadi": 7,
+    "samvadi": 2
+  },
+  {
+    "name": "Asavari",
+    "thaat": "Asavari",
+    "aaroha": [0, 2, 3, 5, 7, 8, 10],
+    "avaroha": [10, 8, 7, 5, 3, 2, 0],
+    "swaras": [0, 2, 3, 5, 7, 8, 10],
+    "vadi": 8,
+    "samvadi": 3
+  },
+  {
+    "name": "Poorvi",
+    "thaat": "Poorvi",
+    "aaroha": [0, 1, 4, 6, 7, 8, 11],
+    "avaroha": [11, 8, 7, 6, 4, 1, 0],
+    "swaras": [0, 1, 4, 6, 7, 8, 11],
+    "vadi": 4,
+    "samvadi": 8
+  },
+  {
+    "name": "Lalit",
+    "thaat": "Marwa",
+    "aaroha": [0, 1, 4, 5, 6, 9, 11],
+    "avaroha": [11, 9, 6, 5, 4, 1, 0],
+    "swaras": [0, 1, 4, 5, 6, 9, 11],
+    "vadi": 5,
+    "samvadi": 11
+  },
+  {
+    "name": "Shree",
+    "thaat": "Poorvi",
+    "aaroha": [0, 1, 4, 6, 7, 8, 11],
+    "avaroha": [11, 8, 7, 6, 4, 1, 0],
+    "swaras": [0, 1, 4, 6, 7, 8, 11],
+    "vadi": 2,
+    "samvadi": 7
+  },
+  {
+    "name": "Jaunpuri",
+    "thaat": "Asavari",
+    "aaroha": [0, 2, 3, 5, 7, 8, 10],
+    "avaroha": [10, 8, 7, 5, 3, 2, 0],
+    "swaras": [0, 2, 3, 5, 7, 8, 10],
+    "vadi": 3,
+    "samvadi": 8
+  },
+  {
+    "name": "Bageshree",
+    "thaat": "Kafi",
+    "aaroha": [0, 3, 5, 9, 10],
+    "avaroha": [10, 9, 7, 5, 3, 2, 0],
+    "swaras": [0, 2, 3, 5, 7, 9, 10],
+    "vadi": 5,
+    "samvadi": 0
+  },
+  {
+    "name": "Bihag",
+    "thaat": "Bilawal",
+    "aaroha": [0, 4, 5, 6, 7, 9, 11],
+    "avaroha": [11, 9, 7, 6, 5, 4, 2, 0],
+    "swaras": [0, 2, 4, 5, 6, 7, 9, 11],
+    "vadi": 4,
+    "samvadi": 11
+  },
+  {
+    "name": "Kedar",
+    "thaat": "Kalyan",
+    "aaroha": [0, 5, 6, 4, 5, 7, 9, 11],
+    "avaroha": [11, 9, 7, 5, 4, 2, 0],
+    "swaras": [0, 2, 4, 5, 6, 7, 9, 11],
+    "vadi": 5,
+    "samvadi": 11
+  },
+  {
+    "name": "Hansadhwani",
+    "thaat": "Bilawal",
+    "aaroha": [0, 2, 4, 7, 11],
+    "avaroha": [11, 7, 4, 2, 0],
+    "swaras": [0, 2, 4, 7, 11],
+    "vadi": 2,
+    "samvadi": 7
+  },
+  {
+    "name": "Durga",
+    "thaat": "Bilawal",
+    "aaroha": [0, 2, 5, 7, 9],
+    "avaroha": [9, 7, 5, 2, 0],
+    "swaras": [0, 2, 5, 7, 9],
+    "vadi": 2,
+    "samvadi": 7
+  },
+  {
+    "name": "Madhuvanti",
+    "thaat": "Todi",
+    "aaroha": [0, 3, 6, 7, 9, 11],
+    "avaroha": [11, 9, 7, 6, 3, 2, 0],
+    "swaras": [0, 2, 3, 6, 7, 9, 11],
+    "vadi": 3,
+    "samvadi": 9
+  },
+  {
+    "name": "Patdeep",
+    "thaat": "Kafi",
+    "aaroha": [0, 3, 5, 7, 9, 10],
+    "avaroha": [10, 9, 7, 5, 3, 2, 0],
+    "swaras": [0, 2, 3, 5, 7, 9, 10],
+    "vadi": 7,
+    "samvadi": 3
+  },
+  {
+    "name": "Brindavani Sarang",
+    "thaat": "Kafi",
+    "aaroha": [0, 2, 5, 7, 9, 10, 11],
+    "avaroha": [11, 10, 9, 7, 5, 2, 0],
+    "swaras": [0, 2, 5, 7, 9, 10, 11],
+    "vadi": 2,
+    "samvadi": 7
+  },
+  {
+    "name": "Ahir Bhairav",
+    "thaat": "Bhairav",
+    "aaroha": [0, 1, 4, 5, 7, 9, 10],
+    "avaroha": [10, 9, 7, 5, 4, 1, 0],
+    "swaras": [0, 1, 4, 5, 7, 9, 10],
+    "vadi": 5,
+    "samvadi": 0
+  },
+  {
+    "name": "Charukeshi",
+    "thaat": "Khamaj",
+    "aaroha": [0, 2, 4, 5, 7, 8, 10],
+    "avaroha": [10, 8, 7, 5, 4, 2, 0],
+    "swaras": [0, 2, 4, 5, 7, 8, 10],
+    "vadi": 5,
+    "samvadi": 0
+  },
+  {
+    "name": "Kirwani",
+    "thaat": "Bhairavi",
+    "aaroha": [0, 2, 3, 5, 7, 8, 11],
+    "avaroha": [11, 8, 7, 5, 3, 2, 0],
+    "swaras": [0, 2, 3, 5, 7, 8, 11],
+    "vadi": 7,
+    "samvadi": 3
+  },
+  {
+    "name": "Pilu",
+    "thaat": "Kafi",
+    "aaroha": [0, 2, 3, 5, 7, 9, 10],
+    "avaroha": [10, 9, 7, 5, 3, 2, 0],
+    "swaras": [0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11],
+    "vadi": 3,
+    "samvadi": 7
+  },
+  {
+    "name": "Shivranjani",
+    "thaat": "Kafi",
+    "aaroha": [0, 2, 3, 7, 9],
+    "avaroha": [9, 7, 3, 2, 0],
+    "swaras": [0, 2, 3, 7, 9],
+    "vadi": 2,
+    "samvadi": 7
+  },
+  {
+    "name": "Bhairavi",
+    "thaat": "Bhairavi",
+    "aaroha": [0, 1, 3, 5, 7, 8, 10],
+    "avaroha": [10, 8, 7, 5, 3, 1, 0],
+    "swaras": [0, 1, 3, 5, 7, 8, 10],
+    "vadi": 5,
+    "samvadi": 0
+  },
+  {
+    "name": "Miya Malhar",
+    "thaat": "Kafi",
+    "aaroha": [0, 2, 5, 6, 7, 9, 10],
+    "avaroha": [10, 9, 7, 6, 5, 3, 2, 0],
+    "swaras": [0, 2, 3, 5, 6, 7, 9, 10],
+    "vadi": 5,
+    "samvadi": 0
+  },
+  {
+    "name": "Megh",
+    "thaat": "Kafi",
+    "aaroha": [0, 2, 5, 7, 10],
+    "avaroha": [10, 9, 7, 5, 2, 0],
+    "swaras": [0, 2, 5, 7, 9, 10],
+    "vadi": 5,
+    "samvadi": 0
+  }
+]

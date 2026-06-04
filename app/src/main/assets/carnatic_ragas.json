@@ -1,0 +1,655 @@
+[
+  {
+    "number": 1,
+    "name": "Kanakangi",
+    "chakra": "Indu",
+    "swaras": [0, 1, 2, 5, 7, 8, 9],
+    "janyaRagas": []
+  },
+  {
+    "number": 2,
+    "name": "Ratnangi",
+    "chakra": "Indu",
+    "swaras": [0, 1, 2, 5, 7, 8, 10],
+    "janyaRagas": []
+  },
+  {
+    "number": 3,
+    "name": "Ganamurti",
+    "chakra": "Indu",
+    "swaras": [0, 1, 2, 5, 7, 8, 11],
+    "janyaRagas": []
+  },
+  {
+    "number": 4,
+    "name": "Vanaspati",
+    "chakra": "Indu",
+    "swaras": [0, 1, 2, 5, 7, 9, 10],
+    "janyaRagas": []
+  },
+  {
+    "number": 5,
+    "name": "Manavati",
+    "chakra": "Indu",
+    "swaras": [0, 1, 2, 5, 7, 9, 11],
+    "janyaRagas": []
+  },
+  {
+    "number": 6,
+    "name": "Tanarupi",
+    "chakra": "Indu",
+    "swaras": [0, 1, 2, 5, 7, 10, 11],
+    "janyaRagas": []
+  },
+  {
+    "number": 7,
+    "name": "Senavati",
+    "chakra": "Netra",
+    "swaras": [0, 1, 3, 5, 7, 8, 9],
+    "janyaRagas": []
+  },
+  {
+    "number": 8,
+    "name": "Hanumatodi",
+    "chakra": "Netra",
+    "swaras": [0, 1, 3, 5, 7, 8, 10],
+    "janyaRagas": [
+      {
+        "name": "Dhanyasi",
+        "aaroha": [0, 1, 3, 5, 7, 10],
+        "avaroha": [10, 8, 7, 5, 3, 1, 0],
+        "swaras": [0, 1, 3, 5, 7, 8, 10]
+      },
+      {
+        "name": "Punnagavarali",
+        "aaroha": [0, 1, 3, 5, 8, 10],
+        "avaroha": [10, 8, 5, 3, 1, 0],
+        "swaras": [0, 1, 3, 5, 8, 10]
+      }
+    ]
+  },
+  {
+    "number": 9,
+    "name": "Dhenuka",
+    "chakra": "Netra",
+    "swaras": [0, 1, 3, 5, 7, 8, 11],
+    "janyaRagas": []
+  },
+  {
+    "number": 10,
+    "name": "Natakapriya",
+    "chakra": "Netra",
+    "swaras": [0, 1, 3, 5, 7, 9, 10],
+    "janyaRagas": []
+  },
+  {
+    "number": 11,
+    "name": "Kokilapriya",
+    "chakra": "Netra",
+    "swaras": [0, 1, 3, 5, 7, 9, 11],
+    "janyaRagas": []
+  },
+  {
+    "number": 12,
+    "name": "Rupavati",
+    "chakra": "Netra",
+    "swaras": [0, 1, 3, 5, 7, 10, 11],
+    "janyaRagas": []
+  },
+  {
+    "number": 13,
+    "name": "Gayakapriya",
+    "chakra": "Agni",
+    "swaras": [0, 1, 4, 5, 7, 8, 9],
+    "janyaRagas": []
+  },
+  {
+    "number": 14,
+    "name": "Vakulabharanam",
+    "chakra": "Agni",
+    "swaras": [0, 1, 4, 5, 7, 8, 10],
+    "janyaRagas": []
+  },
+  {
+    "number": 15,
+    "name": "Mayamalavagowla",
+    "chakra": "Agni",
+    "swaras": [0, 1, 4, 5, 7, 8, 11],
+    "janyaRagas": [
+      {
+        "name": "Malahari",
+        "aaroha": [0, 1, 5, 7, 8],
+        "avaroha": [8, 7, 5, 4, 1, 0],
+        "swaras": [0, 1, 4, 5, 7, 8]
+      },
+      {
+        "name": "Saveri",
+        "aaroha": [0, 1, 5, 7, 8],
+        "avaroha": [8, 7, 5, 4, 1, 0],
+        "swaras": [0, 1, 4, 5, 7, 8]
+      },
+      {
+        "name": "Bowli",
+        "aaroha": [0, 1, 5, 7, 8],
+        "avaroha": [8, 7, 5, 1, 0],
+        "swaras": [0, 1, 5, 7, 8]
+      }
+    ]
+  },
+  {
+    "number": 16,
+    "name": "Chakravakam",
+    "chakra": "Agni",
+    "swaras": [0, 1, 4, 5, 7, 9, 10],
+    "janyaRagas": []
+  },
+  {
+    "number": 17,
+    "name": "Suryakantam",
+    "chakra": "Agni",
+    "swaras": [0, 1, 4, 5, 7, 9, 11],
+    "janyaRagas": []
+  },
+  {
+    "number": 18,
+    "name": "Hatakambari",
+    "chakra": "Agni",
+    "swaras": [0, 1, 4, 5, 7, 10, 11],
+    "janyaRagas": []
+  },
+  {
+    "number": 19,
+    "name": "Jhankaradhwani",
+    "chakra": "Veda",
+    "swaras": [0, 2, 3, 5, 7, 8, 9],
+    "janyaRagas": []
+  },
+  {
+    "number": 20,
+    "name": "Natabhairavi",
+    "chakra": "Veda",
+    "swaras": [0, 2, 3, 5, 7, 8, 10],
+    "janyaRagas": [
+      {
+        "name": "Bhairavi",
+        "aaroha": [0, 2, 3, 5, 7, 8, 10],
+        "avaroha": [10, 8, 7, 5, 3, 2, 0],
+        "swaras": [0, 2, 3, 5, 7, 8, 10]
+      },
+      {
+        "name": "Hindolam",
+        "aaroha": [0, 3, 5, 8, 10],
+        "avaroha": [10, 8, 5, 3, 0],
+        "swaras": [0, 3, 5, 8, 10]
+      }
+    ]
+  },
+  {
+    "number": 21,
+    "name": "Keeravani",
+    "chakra": "Veda",
+    "swaras": [0, 2, 3, 5, 7, 8, 11],
+    "janyaRagas": []
+  },
+  {
+    "number": 22,
+    "name": "Kharaharapriya",
+    "chakra": "Veda",
+    "swaras": [0, 2, 3, 5, 7, 9, 10],
+    "janyaRagas": [
+      {
+        "name": "Abhogi",
+        "aaroha": [0, 2, 3, 5, 9],
+        "avaroha": [9, 5, 3, 2, 0],
+        "swaras": [0, 2, 3, 5, 9]
+      },
+      {
+        "name": "Sri Ranjani",
+        "aaroha": [0, 2, 5, 9, 10],
+        "avaroha": [10, 9, 5, 2, 0],
+        "swaras": [0, 2, 5, 9, 10]
+      },
+      {
+        "name": "Suddha Dhanyasi",
+        "aaroha": [0, 3, 5, 7, 10],
+        "avaroha": [10, 7, 5, 3, 0],
+        "swaras": [0, 3, 5, 7, 10]
+      }
+    ]
+  },
+  {
+    "number": 23,
+    "name": "Gourimanohari",
+    "chakra": "Veda",
+    "swaras": [0, 2, 3, 5, 7, 9, 11],
+    "janyaRagas": []
+  },
+  {
+    "number": 24,
+    "name": "Varunapriya",
+    "chakra": "Veda",
+    "swaras": [0, 2, 3, 5, 7, 10, 11],
+    "janyaRagas": []
+  },
+  {
+    "number": 25,
+    "name": "Mararanjani",
+    "chakra": "Bana",
+    "swaras": [0, 2, 4, 5, 7, 8, 9],
+    "janyaRagas": []
+  },
+  {
+    "number": 26,
+    "name": "Charukeshi",
+    "chakra": "Bana",
+    "swaras": [0, 2, 4, 5, 7, 8, 10],
+    "janyaRagas": []
+  },
+  {
+    "number": 27,
+    "name": "Sarasangi",
+    "chakra": "Bana",
+    "swaras": [0, 2, 4, 5, 7, 8, 11],
+    "janyaRagas": []
+  },
+  {
+    "number": 28,
+    "name": "Harikambhoji",
+    "chakra": "Bana",
+    "swaras": [0, 2, 4, 5, 7, 9, 10],
+    "janyaRagas": [
+      {
+        "name": "Mohanam",
+        "aaroha": [0, 2, 4, 7, 9],
+        "avaroha": [9, 7, 4, 2, 0],
+        "swaras": [0, 2, 4, 7, 9]
+      },
+      {
+        "name": "Kambhoji",
+        "aaroha": [0, 2, 4, 5, 7, 9],
+        "avaroha": [9, 7, 5, 4, 2, 0],
+        "swaras": [0, 2, 4, 5, 7, 9]
+      },
+      {
+        "name": "Kalyani Vasantam",
+        "aaroha": [0, 2, 4, 5, 9],
+        "avaroha": [9, 5, 4, 2, 0],
+        "swaras": [0, 2, 4, 5, 9]
+      }
+    ]
+  },
+  {
+    "number": 29,
+    "name": "Dheerasankarabharanam",
+    "chakra": "Bana",
+    "swaras": [0, 2, 4, 5, 7, 9, 11],
+    "janyaRagas": [
+      {
+        "name": "Hamsadhwani",
+        "aaroha": [0, 2, 4, 7, 11],
+        "avaroha": [11, 7, 4, 2, 0],
+        "swaras": [0, 2, 4, 7, 11]
+      },
+      {
+        "name": "Bilahari",
+        "aaroha": [0, 2, 4, 7, 9],
+        "avaroha": [9, 7, 5, 4, 2, 0],
+        "swaras": [0, 2, 4, 5, 7, 9]
+      },
+      {
+        "name": "Kedaragowla",
+        "aaroha": [0, 2, 5, 7, 9],
+        "avaroha": [9, 7, 5, 4, 2, 0],
+        "swaras": [0, 2, 4, 5, 7, 9]
+      }
+    ]
+  },
+  {
+    "number": 30,
+    "name": "Naganandini",
+    "chakra": "Bana",
+    "swaras": [0, 2, 4, 5, 7, 10, 11],
+    "janyaRagas": []
+  },
+  {
+    "number": 31,
+    "name": "Yagapriya",
+    "chakra": "Rutu",
+    "swaras": [0, 3, 4, 5, 7, 8, 9],
+    "janyaRagas": []
+  },
+  {
+    "number": 32,
+    "name": "Ragavardhini",
+    "chakra": "Rutu",
+    "swaras": [0, 3, 4, 5, 7, 8, 10],
+    "janyaRagas": []
+  },
+  {
+    "number": 33,
+    "name": "Gangeyabhushini",
+    "chakra": "Rutu",
+    "swaras": [0, 3, 4, 5, 7, 8, 11],
+    "janyaRagas": []
+  },
+  {
+    "number": 34,
+    "name": "Vagadheeswari",
+    "chakra": "Rutu",
+    "swaras": [0, 3, 4, 5, 7, 9, 10],
+    "janyaRagas": []
+  },
+  {
+    "number": 35,
+    "name": "Shulini",
+    "chakra": "Rutu",
+    "swaras": [0, 3, 4, 5, 7, 9, 11],
+    "janyaRagas": []
+  },
+  {
+    "number": 36,
+    "name": "Chalanata",
+    "chakra": "Rutu",
+    "swaras": [0, 3, 4, 5, 7, 10, 11],
+    "janyaRagas": []
+  },
+  {
+    "number": 37,
+    "name": "Salagam",
+    "chakra": "Rishi",
+    "swaras": [0, 1, 2, 6, 7, 8, 9],
+    "janyaRagas": []
+  },
+  {
+    "number": 38,
+    "name": "Jalarnavam",
+    "chakra": "Rishi",
+    "swaras": [0, 1, 2, 6, 7, 8, 10],
+    "janyaRagas": []
+  },
+  {
+    "number": 39,
+    "name": "Jhalavarali",
+    "chakra": "Rishi",
+    "swaras": [0, 1, 2, 6, 7, 8, 11],
+    "janyaRagas": []
+  },
+  {
+    "number": 40,
+    "name": "Navaneetam",
+    "chakra": "Rishi",
+    "swaras": [0, 1, 2, 6, 7, 9, 10],
+    "janyaRagas": []
+  },
+  {
+    "number": 41,
+    "name": "Pavani",
+    "chakra": "Rishi",
+    "swaras": [0, 1, 2, 6, 7, 9, 11],
+    "janyaRagas": []
+  },
+  {
+    "number": 42,
+    "name": "Raghupriya",
+    "chakra": "Rishi",
+    "swaras": [0, 1, 2, 6, 7, 10, 11],
+    "janyaRagas": []
+  },
+  {
+    "number": 43,
+    "name": "Gavambodhi",
+    "chakra": "Vasu",
+    "swaras": [0, 1, 3, 6, 7, 8, 9],
+    "janyaRagas": []
+  },
+  {
+    "number": 44,
+    "name": "Bhavapriya",
+    "chakra": "Vasu",
+    "swaras": [0, 1, 3, 6, 7, 8, 10],
+    "janyaRagas": []
+  },
+  {
+    "number": 45,
+    "name": "Subhapantuvarali",
+    "chakra": "Vasu",
+    "swaras": [0, 1, 3, 6, 7, 8, 11],
+    "janyaRagas": [
+      {
+        "name": "Shubhapantuvarali",
+        "aaroha": [0, 1, 3, 6, 7, 8, 11],
+        "avaroha": [11, 8, 7, 6, 3, 1, 0],
+        "swaras": [0, 1, 3, 6, 7, 8, 11]
+      }
+    ]
+  },
+  {
+    "number": 46,
+    "name": "Shadvidhamargini",
+    "chakra": "Vasu",
+    "swaras": [0, 1, 3, 6, 7, 9, 10],
+    "janyaRagas": []
+  },
+  {
+    "number": 47,
+    "name": "Suvarnangi",
+    "chakra": "Vasu",
+    "swaras": [0, 1, 3, 6, 7, 9, 11],
+    "janyaRagas": []
+  },
+  {
+    "number": 48,
+    "name": "Divyamani",
+    "chakra": "Vasu",
+    "swaras": [0, 1, 3, 6, 7, 10, 11],
+    "janyaRagas": []
+  },
+  {
+    "number": 49,
+    "name": "Dhavalambari",
+    "chakra": "Brahma",
+    "swaras": [0, 1, 4, 6, 7, 8, 9],
+    "janyaRagas": []
+  },
+  {
+    "number": 50,
+    "name": "Namanarayani",
+    "chakra": "Brahma",
+    "swaras": [0, 1, 4, 6, 7, 8, 10],
+    "janyaRagas": []
+  },
+  {
+    "number": 51,
+    "name": "Kamavardhini",
+    "chakra": "Brahma",
+    "swaras": [0, 1, 4, 6, 7, 8, 11],
+    "janyaRagas": [
+      {
+        "name": "Pantuvarali",
+        "aaroha": [0, 1, 4, 6, 7, 8, 11],
+        "avaroha": [11, 8, 7, 6, 4, 1, 0],
+        "swaras": [0, 1, 4, 6, 7, 8, 11]
+      }
+    ]
+  },
+  {
+    "number": 52,
+    "name": "Ramapriya",
+    "chakra": "Brahma",
+    "swaras": [0, 1, 4, 6, 7, 9, 10],
+    "janyaRagas": []
+  },
+  {
+    "number": 53,
+    "name": "Gamanasrama",
+    "chakra": "Brahma",
+    "swaras": [0, 1, 4, 6, 7, 9, 11],
+    "janyaRagas": []
+  },
+  {
+    "number": 54,
+    "name": "Viswambhari",
+    "chakra": "Brahma",
+    "swaras": [0, 1, 4, 6, 7, 10, 11],
+    "janyaRagas": []
+  },
+  {
+    "number": 55,
+    "name": "Shamalangi",
+    "chakra": "Disi",
+    "swaras": [0, 2, 3, 6, 7, 8, 9],
+    "janyaRagas": []
+  },
+  {
+    "number": 56,
+    "name": "Shanmukhapriya",
+    "chakra": "Disi",
+    "swaras": [0, 2, 3, 6, 7, 8, 10],
+    "janyaRagas": [
+      {
+        "name": "Chinthamani",
+        "aaroha": [0, 2, 6, 7, 8, 10],
+        "avaroha": [10, 8, 7, 6, 2, 0],
+        "swaras": [0, 2, 6, 7, 8, 10]
+      }
+    ]
+  },
+  {
+    "number": 57,
+    "name": "Simhendramadhyamam",
+    "chakra": "Disi",
+    "swaras": [0, 2, 3, 6, 7, 8, 11],
+    "janyaRagas": []
+  },
+  {
+    "number": 58,
+    "name": "Hemavati",
+    "chakra": "Disi",
+    "swaras": [0, 2, 3, 6, 7, 9, 10],
+    "janyaRagas": []
+  },
+  {
+    "number": 59,
+    "name": "Dharmavati",
+    "chakra": "Disi",
+    "swaras": [0, 2, 3, 6, 7, 9, 11],
+    "janyaRagas": [
+      {
+        "name": "Ranjani",
+        "aaroha": [0, 2, 6, 9, 11],
+        "avaroha": [11, 9, 6, 2, 0],
+        "swaras": [0, 2, 6, 9, 11]
+      }
+    ]
+  },
+  {
+    "number": 60,
+    "name": "Neetimati",
+    "chakra": "Disi",
+    "swaras": [0, 2, 3, 6, 7, 10, 11],
+    "janyaRagas": []
+  },
+  {
+    "number": 61,
+    "name": "Kantamani",
+    "chakra": "Rudra",
+    "swaras": [0, 2, 4, 6, 7, 8, 9],
+    "janyaRagas": []
+  },
+  {
+    "number": 62,
+    "name": "Rishabhapriya",
+    "chakra": "Rudra",
+    "swaras": [0, 2, 4, 6, 7, 8, 10],
+    "janyaRagas": []
+  },
+  {
+    "number": 63,
+    "name": "Latangi",
+    "chakra": "Rudra",
+    "swaras": [0, 2, 4, 6, 7, 8, 11],
+    "janyaRagas": []
+  },
+  {
+    "number": 64,
+    "name": "Vachaspati",
+    "chakra": "Rudra",
+    "swaras": [0, 2, 4, 6, 7, 9, 10],
+    "janyaRagas": []
+  },
+  {
+    "number": 65,
+    "name": "Mechakalyani",
+    "chakra": "Rudra",
+    "swaras": [0, 2, 4, 6, 7, 9, 11],
+    "janyaRagas": [
+      {
+        "name": "Mohana Kalyani",
+        "aaroha": [0, 2, 4, 7, 9],
+        "avaroha": [9, 7, 4, 2, 0],
+        "swaras": [0, 2, 4, 7, 9]
+      },
+      {
+        "name": "Saranga",
+        "aaroha": [0, 2, 6, 7, 9],
+        "avaroha": [9, 7, 6, 2, 0],
+        "swaras": [0, 2, 6, 7, 9]
+      },
+      {
+        "name": "Hameer Kalyani",
+        "aaroha": [0, 2, 4, 6, 7, 9, 11],
+        "avaroha": [11, 9, 7, 6, 4, 2, 0],
+        "swaras": [0, 2, 4, 6, 7, 9, 11]
+      }
+    ]
+  },
+  {
+    "number": 66,
+    "name": "Chitrambari",
+    "chakra": "Rudra",
+    "swaras": [0, 2, 4, 6, 7, 10, 11],
+    "janyaRagas": []
+  },
+  {
+    "number": 67,
+    "name": "Sucharitra",
+    "chakra": "Aditya",
+    "swaras": [0, 3, 4, 6, 7, 8, 9],
+    "janyaRagas": []
+  },
+  {
+    "number": 68,
+    "name": "Jyotiswarupini",
+    "chakra": "Aditya",
+    "swaras": [0, 3, 4, 6, 7, 8, 10],
+    "janyaRagas": []
+  },
+  {
+    "number": 69,
+    "name": "Dhatuvardhini",
+    "chakra": "Aditya",
+    "swaras": [0, 3, 4, 6, 7, 8, 11],
+    "janyaRagas": []
+  },
+  {
+    "number": 70,
+    "name": "Nasikabhushini",
+    "chakra": "Aditya",
+    "swaras": [0, 3, 4, 6, 7, 9, 10],
+    "janyaRagas": []
+  },
+  {
+    "number": 71,
+    "name": "Kosalam",
+    "chakra": "Aditya",
+    "swaras": [0, 3, 4, 6, 7, 9, 11],
+    "janyaRagas": []
+  },
+  {
+    "number": 72,
+    "name": "Rasikapriya",
+    "chakra": "Aditya",
+    "swaras": [0, 3, 4, 6, 7, 10, 11],
+    "janyaRagas": []
+  }
+]
