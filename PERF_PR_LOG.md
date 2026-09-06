@@ -67,10 +67,52 @@
 - **On-Device Benchmark & Profiling Results (Xiaomi Poco F5 - Snapdragon 7+ Gen 2):**
   - **PitchGraph Body Recomposition Rate:** **0 recompositions/sec** (verified across 2.5 minutes of continuous live singing: `PitchGraph recompositions in last 2s: 0`).
   - **Display Refresh Rate:** Rendered at native 60 Hz display refresh rate.
-  - **Gfxinfo Metrics (10,447 total frames rendered during live audio input & gestures):**
-    - Janky frames: **256 / 10,447 (2.45%)** (down from 74% legacy / juddering)
+  - **Gfxinfo Metrics (Baseline decoupled loop):**
+    - Janky frames: **256 / 10,447 (2.45%)**
     - 50th percentile frame time: **20 ms**
     - 90th percentile frame time: **32 ms**
-    - GPU 50th percentile: **3 ms**
-    - GPU 90th percentile: **4 ms**
-    - GPU 99th percentile: **4 ms**
+
+---
+
+## Performance Verification & Fix: VPM-Style Hardware-Accelerated `drawLines` & `DisplayPitchFilter`
+- **Branch:** `fix-live-graph-smoothness`
+- **Status:** Verified on Poco F5 & Ready to Merge
+- **Problem Statement:**
+  While data/frame clock decoupling achieved native refresh rate pacing, Skia `drawPath` CPU triangulation overhead (~20ms CPU draw) caused occasional dropped frames, and transient octave/glitch detector errors drew spurious vertical connection lines across pauses.
+- **Reference Architecture Analyzed:**
+  Decompiled Vocal Pitch Monitor (VPM, `com.tadaoyamaoka.vocalpitchmonitor`), which uses direct hardware-accelerated `Canvas.drawLines(pts, offset, count, paint)` with a 400-cent discontinuity break threshold.
+- **Key Changes Implemented:**
+  1. **Hardware-Accelerated `nativeCanvas.drawLines`:**
+     - Replaced Skia `drawPath` with direct batched OpenGL vertex rendering (`nativeCanvas.drawLines(linePts, 0, ptIdx, paint)`).
+     - Fixed `FloatArray(4800)` buffer pre-allocated once outside the draw hot path $\to$ **zero heap allocations per frame**.
+     - CPU draw-lambda time dropped from ~20 ms to **0.42 ms average / 0.82 ms max** (sub-millisecond!).
+  2. **Preserved Two-Pass Glow + Gradient Appearance:**
+     - Cached native `LinearGradient` Shader (`secondaryColor.copy(alpha=0.6f)` to `primaryColor`).
+     - Pass 1: Glow trace with 20% alpha and 1.8 dp stroke.
+     - Pass 2: Sharp core trace with 100% alpha and 0.8 dp stroke. Verified identical to original UI.
+  3. **Display-Side Pitch Filter (`DisplayPitchFilter.kt`):**
+     - Confidence gating: confidence $< 0.85 \to$ gap (0 Hz).
+     - 3-frame running median filter.
+     - Transient 1-frame octave glitches snapped to median; sustained ($\ge 2$ frames) octave leaps accepted.
+     - Wild outlier rejection ($> 600\text{ cents}$) suppressed.
+     - Light EMA ($\alpha = 0.65$, $\tau \approx 20\text{ ms}$) on continuous voiced notes.
+     - Discontinuity resets on breath pauses ($0\text{ Hz}$) and jumps $> 400\text{ cents}$.
+     - Added display latency capped at $\approx 23-40\text{ ms}$ (imperceptible by ear).
+  4. **Tunable Discontinuity Threshold (`DISCONTINUITY_BREAK_CENTS = 400f`):**
+     - Breaks line segments across large pitch transitions, completely eliminating spurious vertical spikes while allowing meends and gamaks ($\le 100-150\text{ cents/frame}$) to render smoothly without breaking.
+  5. **Comprehensive Unit Tests (`DisplayPitchFilterTest.kt`):**
+     - 100% passing tests for confidence gating, transient vs. sustained octave handling, wild spike suppression, intentional leaps, and discontinuity resets.
+- **On-Device Verification Results (Xiaomi Poco F5, live singing over wireless ADB):**
+  - **Achieved Frame Rate:** **60 FPS** solidly locked to native 60.0 Hz display refresh rate.
+  - **Draw Lambda Duration:** **0.42 ms average, 0.82 ms max** (sub-millisecond CPU draw).
+  - **PitchGraph Body Recompositions:** **0 recompositions/sec** (`PitchGraph recompositions in last 2s: 0`).
+  - **Gfxinfo Metrics (1,484 frames under sustained live singing):**
+    - **50th percentile (median): 14 ms** (comfortably $\le 16.6\text{ ms}$ budget at 60 Hz)
+    - **90th percentile: 20 ms**
+    - **95th percentile: 22 ms**
+    - **99th percentile: 27 ms**
+    - **Janky frames: 1 / 1,484 (0.07%)** (down from 2.45% and 74% legacy)
+    - **Number Missed Vsync: 0**
+    - **Number Slow issue draw commands: 0**
+    - **Slow bitmap uploads: 0**
+    - **GPU 50th percentile: 3 ms; GPU 90th percentile: 3 ms; GPU 99th percentile: 4 ms**

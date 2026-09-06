@@ -52,6 +52,8 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.graphics.LinearGradient
+import android.graphics.Shader
 import com.shrutimonitor.app.audio.PitchRingBuffer
 import com.shrutimonitor.app.audio.VisibleWindowScratch
 import com.shrutimonitor.app.data.Nomenclature
@@ -61,6 +63,22 @@ import com.shrutimonitor.app.ui.theme.PrimarySaffron
 import com.shrutimonitor.app.ui.theme.TextSecondary
 import kotlin.math.ceil
 import kotlin.math.floor
+import kotlin.math.roundToInt
+
+/**
+ * Pitch discontinuity threshold in cents (4 semitones / 400 cents).
+ *
+ * Breaks the visual line trace across large jumps (consonants, pauses, octave errors),
+ * eliminating spurious vertical line spikes, while smoothly preserving legitimate
+ * Indian classical meends and gamaks (which typically glide at <= 100-150 cents/frame).
+ */
+const val DISCONTINUITY_BREAK_CENTS = 400f
+
+private class DrawStats {
+    var totalNs = 0L
+    var count = 0
+    var maxNs = 0L
+}
 
 /**
  * Custom 60/120 FPS Canvas for real-time scrolling pitch trace visualization.
@@ -151,7 +169,9 @@ fun PitchGraph(
         }
     }
 
-    // Recomposition verification: monitor that PitchGraph body stays at 0 recompositions/sec during live singing
+    val drawStats = remember { DrawStats() }
+
+    // Recomposition & draw latency verification: monitor 0 recomps/sec and sub-millisecond draw time
     var recompositionCount by remember { mutableIntStateOf(0) }
     SideEffect {
         recompositionCount++
@@ -161,8 +181,17 @@ fun PitchGraph(
         while (true) {
             kotlinx.coroutines.delay(2000)
             val current = recompositionCount
-            android.util.Log.d("PitchGraphPerf", "PitchGraph recompositions in last 2s: ${current - lastCount} (total: $current)")
+            val count = drawStats.count
+            val avgMs = if (count > 0) (drawStats.totalNs / count) / 1_000_000.0 else 0.0
+            val maxMs = drawStats.maxNs / 1_000_000.0
+            android.util.Log.d(
+                "PitchGraphPerf",
+                "PitchGraph recompositions in last 2s: ${current - lastCount} (total: $current) | FPS: ${count / 2} | Draw avg: ${String.format("%.2f", avgMs)}ms, max: ${String.format("%.2f", maxMs)}ms"
+            )
             lastCount = current
+            drawStats.totalNs = 0L
+            drawStats.count = 0
+            drawStats.maxNs = 0L
         }
     }
 
@@ -173,11 +202,23 @@ fun PitchGraph(
 
     // Precalculate and cache drawing resources outside draw loop
     val density = androidx.compose.ui.platform.LocalDensity.current
-    val glowStroke = remember(density) {
-        with(density) { Stroke(width = 1.8.dp.toPx(), cap = StrokeCap.Round) }
+    val glowPaint = remember(density) {
+        android.graphics.Paint().apply {
+            isAntiAlias = true
+            style = android.graphics.Paint.Style.STROKE
+            strokeCap = android.graphics.Paint.Cap.ROUND
+            strokeWidth = with(density) { 1.8.dp.toPx() }
+            alpha = (0.2f * 255).roundToInt()
+        }
     }
-    val coreStroke = remember(density) {
-        with(density) { Stroke(width = 0.8.dp.toPx(), cap = StrokeCap.Round) }
+    val corePaint = remember(density) {
+        android.graphics.Paint().apply {
+            isAntiAlias = true
+            style = android.graphics.Paint.Style.STROKE
+            strokeCap = android.graphics.Paint.Cap.ROUND
+            strokeWidth = with(density) { 0.8.dp.toPx() }
+            alpha = 255
+        }
     }
     val thickGridStroke = remember(density) { with(density) { 1.5.dp.toPx() } }
     val thinGridStroke = remember(density) { with(density) { 0.8.dp.toPx() } }
@@ -192,8 +233,12 @@ fun PitchGraph(
             isAntiAlias = true
         }
     }
-    val tracePath = remember { Path() }
     val windowScratch = remember { VisibleWindowScratch(1200) }
+    val linePts = remember { FloatArray(1200 * 4) }
+    var cachedShaderWidth by remember { mutableFloatStateOf(0f) }
+    var cachedShaderPrimary by remember { mutableIntStateOf(0) }
+    var cachedShaderSecondary by remember { mutableIntStateOf(0) }
+    var cachedShader by remember { mutableStateOf<Shader?>(null) }
 
     // Precomputed Swara label table for octaves -2..2 and 12 swaras
     // Eliminates string formatting allocations during 60/120Hz rendering
@@ -217,10 +262,6 @@ fun PitchGraph(
             }
         }
     }
-
-    // Brush cache to avoid per-frame allocations
-    var cachedBrush by remember { mutableStateOf<Brush?>(null) }
-    var cachedBrushWidth by remember { mutableFloatStateOf(0f) }
 
     Box(
         modifier = modifier
@@ -250,6 +291,7 @@ fun PitchGraph(
     ) {
         // Custom Canvas drawing - invalidated on each vsync frame without Composable body recomposition
         Canvas(modifier = Modifier.fillMaxSize()) {
+            val drawStart = System.nanoTime()
             val width = size.width
             val height = size.height
 
@@ -326,22 +368,23 @@ fun PitchGraph(
                 )
             }
 
-            // ── DRAW PITCH TRACE ──
+            // ── DRAW PITCH TRACE (VPM-style hardware-accelerated drawLines) ──
             if (saFrequency > 0f) {
                 val numPoints = pitchHistory.copyVisibleWindow(startTime, endTime, windowScratch)
 
                 if (numPoints > 0) {
-                    tracePath.reset()
-                    var hasSegments = false
-                    var isSegmentStarted = false
-
                     val logSa = kotlin.math.ln(saFrequency.toDouble())
                     val ln2Inv = 1200.0 / kotlin.math.ln(2.0)
+
+                    var ptIdx = 0
+                    var prevX = 0f
+                    var prevY = 0f
+                    var prevCents = -1f
 
                     for (i in 0 until numPoints) {
                         val freq = windowScratch.freqs[i]
                         if (freq <= 0f) {
-                            isSegmentStarted = false
+                            prevCents = -1f
                             continue
                         }
 
@@ -351,43 +394,63 @@ fun PitchGraph(
                         val visualCent = Swara.actualToVisualCents(centsFromSa).toFloat()
                         val y = height - (visualCent - centsMin) * heightScale
 
-                        if (!isSegmentStarted) {
-                            tracePath.moveTo(x, y)
-                            tracePath.lineTo(x + 0.1f, y) // ensure single isolated sample draws as round dot
-                            isSegmentStarted = true
-                            hasSegments = true
-                        } else {
-                            tracePath.lineTo(x, y)
+                        if (ptIdx + 4 <= linePts.size) {
+                            if (prevCents < 0f || kotlin.math.abs(visualCent - prevCents) > DISCONTINUITY_BREAK_CENTS) {
+                                // Discontinuity break, unvoiced transition, or isolated note:
+                                // Render round point cap without connecting across discontinuity
+                                linePts[ptIdx] = x
+                                linePts[ptIdx + 1] = y
+                                linePts[ptIdx + 2] = x + 0.5f
+                                linePts[ptIdx + 3] = y
+                            } else {
+                                // Continuous note glide (e.g. meend/gamak): connect previous vertex to current
+                                linePts[ptIdx] = prevX
+                                linePts[ptIdx + 1] = prevY
+                                linePts[ptIdx + 2] = x
+                                linePts[ptIdx + 3] = y
+                            }
+                            ptIdx += 4
                         }
+
+                        prevX = x
+                        prevY = y
+                        prevCents = visualCent
                     }
 
-                    if (hasSegments) {
-                        if (cachedBrush == null || cachedBrushWidth != width) {
-                            cachedBrushWidth = width
-                            cachedBrush = Brush.horizontalGradient(
-                                colors = listOf(secondaryColor.copy(alpha = 0.6f), primaryColor),
-                                startX = 0f,
-                                endX = width
+                    if (ptIdx >= 4) {
+                        val primArgb = primaryColor.toArgb()
+                        val secArgb = secondaryColor.toArgb()
+                        if (cachedShader == null || cachedShaderWidth != width || cachedShaderPrimary != primArgb || cachedShaderSecondary != secArgb) {
+                            cachedShaderWidth = width
+                            cachedShaderPrimary = primArgb
+                            cachedShaderSecondary = secArgb
+                            val shader = LinearGradient(
+                                0f, 0f, width, 0f,
+                                secondaryColor.copy(alpha = 0.6f).toArgb(),
+                                primArgb,
+                                Shader.TileMode.CLAMP
                             )
+                            cachedShader = shader
+                            glowPaint.shader = shader
+                            corePaint.shader = shader
                         }
-                        val traceBrush = cachedBrush!!
 
-                        // 1. Glow trace
-                        drawPath(
-                            path = tracePath,
-                            brush = traceBrush,
-                            style = glowStroke,
-                            alpha = 0.2f
-                        )
+                        val nativeCanvas = drawContext.canvas.nativeCanvas
 
-                        // 2. Core sharp trace
-                        drawPath(
-                            path = tracePath,
-                            brush = traceBrush,
-                            style = coreStroke
-                        )
+                        // Pass 1: Glow trace (wider stroke with soft alpha)
+                        nativeCanvas.drawLines(linePts, 0, ptIdx, glowPaint)
+
+                        // Pass 2: Core sharp trace (crisp center stroke)
+                        nativeCanvas.drawLines(linePts, 0, ptIdx, corePaint)
                     }
                 }
+            }
+
+            val drawDuration = System.nanoTime() - drawStart
+            drawStats.totalNs += drawDuration
+            drawStats.count++
+            if (drawDuration > drawStats.maxNs) {
+                drawStats.maxNs = drawDuration
             }
         }
 

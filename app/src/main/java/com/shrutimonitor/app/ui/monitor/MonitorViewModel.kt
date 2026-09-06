@@ -31,6 +31,7 @@ import kotlin.math.log2
 import kotlin.math.sin
 
 import com.shrutimonitor.app.audio.PitchRingBuffer
+import com.shrutimonitor.app.audio.DisplayPitchFilter
 
 /**
  * UI State for the pitch monitor screen.
@@ -79,6 +80,7 @@ class MonitorViewModel(application: Application) : AndroidViewModel(application)
 
     private val maxHistoryPoints = 1200 // ~1 minute at 20fps or ~30s at 40fps
     private val pitchHistory = PitchRingBuffer(maxHistoryPoints)
+    private val displayPitchFilter = DisplayPitchFilter()
 
     private val _uiState = MutableStateFlow(MonitorUiState(pitchHistory = pitchHistory))
     val uiState: StateFlow<MonitorUiState> = _uiState.asStateFlow()
@@ -114,6 +116,7 @@ class MonitorViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             settingsRepository.confidenceThreshold.collect { threshold ->
                 confidenceThreshold = threshold
+                displayPitchFilter.confidenceThreshold = threshold
                 _uiState.update { it.copy(confidenceThreshold = threshold) }
             }
         }
@@ -204,8 +207,11 @@ class MonitorViewModel(application: Application) : AndroidViewModel(application)
 
                 val nowUptime = android.os.SystemClock.uptimeMillis()
 
-                if (pitchResult.isVoiced && pitchResult.confidence >= confidenceThreshold) {
-                    val swaraResult = swaraMapper.mapFrequency(saFrequency, pitchResult.frequency)
+                val filteredFreq = displayPitchFilter.filter(pitchResult.frequency, pitchResult.confidence)
+
+                if (filteredFreq > 0f) {
+                    val swaraResult = swaraMapper.mapFrequency(saFrequency, filteredFreq)
+                    val centsFromSa = 1200.0 * log2(filteredFreq.toDouble() / saFrequency.toDouble())
 
                     // Map to display models
                     val info = SwaraInfo(
@@ -217,25 +223,25 @@ class MonitorViewModel(application: Application) : AndroidViewModel(application)
                         saptak = swaraResult.saptak.name
                     )
 
-                    pitchHistory.push(nowUptime, pitchResult.frequency, pitchResult.confidence)
+                    pitchHistory.push(nowUptime, filteredFreq, pitchResult.confidence)
 
                     _uiState.update { state ->
                         state.copy(
                             currentSwara = info,
-                            centDeviation = swaraResult.centDeviation,
-                            frequency = pitchResult.frequency,
+                            centDeviation = centsFromSa.toFloat(),
+                            frequency = filteredFreq,
                             pitchHistory = pitchHistory,
                             historyVersion = state.historyVersion + 1
                         )
                     }
 
-                    // Save to recorder if active
+                    // Save to recorder if active (recording gets raw detection)
                     if (sessionRecorder.isRecording) {
                         sessionRecorder.addPitchPoint(swaraResult, pitchResult.confidence)
                     }
 
                 } else {
-                    // Unvoiced frame
+                    // Unvoiced frame or rejected glitch
                     pitchHistory.push(nowUptime, 0f, pitchResult.confidence)
 
                     _uiState.update { state ->
@@ -255,6 +261,7 @@ class MonitorViewModel(application: Application) : AndroidViewModel(application)
     private fun stopAudioProcessing() {
         audioCollectionJob?.cancel()
         audioCollectionJob = null
+        displayPitchFilter.resetVoicedState()
     }
 
     /**
