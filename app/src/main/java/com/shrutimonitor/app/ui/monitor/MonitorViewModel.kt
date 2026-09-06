@@ -211,7 +211,6 @@ class MonitorViewModel(application: Application) : AndroidViewModel(application)
 
                 if (filteredFreq > 0f) {
                     val swaraResult = swaraMapper.mapFrequency(saFrequency, filteredFreq)
-                    val centsFromSa = 1200.0 * log2(filteredFreq.toDouble() / saFrequency.toDouble())
 
                     // Map to display models
                     val info = SwaraInfo(
@@ -228,7 +227,7 @@ class MonitorViewModel(application: Application) : AndroidViewModel(application)
                     _uiState.update { state ->
                         state.copy(
                             currentSwara = info,
-                            centDeviation = centsFromSa.toFloat(),
+                            centDeviation = swaraResult.centDeviation,
                             frequency = filteredFreq,
                             pitchHistory = pitchHistory,
                             historyVersion = state.historyVersion + 1
