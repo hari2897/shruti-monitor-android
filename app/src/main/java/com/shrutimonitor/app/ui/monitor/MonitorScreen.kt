@@ -166,6 +166,7 @@ fun MonitorScreen(
             ) {
                 PitchGraph(
                     pitchHistory = state.pitchHistory,
+                    saFrequency = state.saFrequency,
                     activeRagaSwaras = state.activeRagaSwaras,
                     isLive = state.isLiveMode,
                     autoFollow = state.autoFollow,
