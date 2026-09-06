@@ -60,6 +60,8 @@ import com.shrutimonitor.app.ui.theme.TextSecondary
 import kotlin.math.ceil
 import kotlin.math.floor
 
+import com.shrutimonitor.app.audio.PitchRingBuffer
+
 /**
  * Custom 60FPS Canvas for real-time scrolling pitch trace visualization.
  *
@@ -73,7 +75,8 @@ import kotlin.math.floor
  */
 @Composable
 fun PitchGraph(
-    pitchHistory: List<PitchPoint>,
+    pitchHistory: PitchRingBuffer,
+    saFrequency: Float,
     activeRagaSwaras: Set<Int>?,
     isLive: Boolean,
     autoFollow: Boolean,
@@ -91,12 +94,20 @@ fun PitchGraph(
     // Smooth centering for auto-follow
     var smoothedCenterCents by remember { mutableFloatStateOf(0f) }
 
-    val lastVoicedPoint = pitchHistory.lastOrNull { it.frequency > 0 }
+    var lastVoicedFreq by remember { mutableFloatStateOf(0f) }
+    for (i in pitchHistory.size - 1 downTo 0) {
+        val f = pitchHistory.freqAt(i)
+        if (f > 0f) {
+            lastVoicedFreq = f
+            break
+        }
+    }
     
-    LaunchedEffect(lastVoicedPoint, autoFollow) {
-        if (autoFollow && lastVoicedPoint != null) {
+    LaunchedEffect(lastVoicedFreq, autoFollow, saFrequency) {
+        if (autoFollow && lastVoicedFreq > 0f && saFrequency > 0f) {
             // Smoothly interpolate the center cents position to prevent jitter
-            val targetCenter = Swara.actualToVisualCents(lastVoicedPoint.centFromSa.toDouble()).toFloat()
+            val centsFromSa = 1200.0 * kotlin.math.log2(lastVoicedFreq.toDouble() / saFrequency.toDouble())
+            val targetCenter = Swara.actualToVisualCents(centsFromSa).toFloat()
             val alpha = 0.15f
             smoothedCenterCents = smoothedCenterCents + alpha * (targetCenter - smoothedCenterCents)
         } else if (!autoFollow) {
@@ -159,7 +170,8 @@ fun PitchGraph(
             val width = size.width
             val height = size.height
 
-            val latestTime = pitchHistory.lastOrNull()?.timestamp ?: 0L
+            val bufferSize = pitchHistory.size
+            val latestTime = if (bufferSize > 0) pitchHistory.timeAt(bufferSize - 1) else 0L
             val endTime = if (isLive) latestTime else latestTime - scrollOffsetX.toLong()
             val startTime = endTime - timeWindowMs
 
@@ -233,22 +245,24 @@ fun PitchGraph(
             }
 
             // ── DRAW PITCH TRACE ──
-            if (pitchHistory.isNotEmpty()) {
+            if (bufferSize > 0 && saFrequency > 0f) {
                 val tracePath = Path()
                 var isPathStarted = false
 
-                // Filter points that are in the current horizontal visible window
-                val visiblePoints = pitchHistory.filter { it.timestamp in startTime..endTime }
+                for (i in 0 until bufferSize) {
+                    val time = pitchHistory.timeAt(i)
+                    if (time < startTime || time > endTime) continue
 
-                for (point in visiblePoints) {
-                    if (point.frequency <= 0f) {
+                    val freq = pitchHistory.freqAt(i)
+                    if (freq <= 0f) {
                         // Unvoiced gap - breaks the trace
                         isPathStarted = false
                         continue
                     }
 
-                    val x = width * (point.timestamp - startTime).toFloat() / timeWindowMs
-                    val visualCent = Swara.actualToVisualCents(point.centFromSa.toDouble()).toFloat()
+                    val x = width * (time - startTime).toFloat() / timeWindowMs
+                    val centsFromSa = 1200.0 * kotlin.math.log2(freq.toDouble() / saFrequency.toDouble())
+                    val visualCent = Swara.actualToVisualCents(centsFromSa).toFloat()
                     val y = height * (1.0f - (visualCent - centsMin) / centsRange)
 
                     if (!isPathStarted) {

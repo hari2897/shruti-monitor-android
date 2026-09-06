@@ -30,6 +30,8 @@ import kotlin.math.PI
 import kotlin.math.log2
 import kotlin.math.sin
 
+import com.shrutimonitor.app.audio.PitchRingBuffer
+
 /**
  * UI State for the pitch monitor screen.
  */
@@ -44,7 +46,8 @@ data class MonitorUiState(
     val autoFollow: Boolean = true,
     val activeRagaName: String? = null,
     val activeRagaSwaras: Set<Int>? = null,
-    val pitchHistory: List<PitchPoint> = emptyList(),
+    val pitchHistory: PitchRingBuffer = PitchRingBuffer(1200),
+    val historyVersion: Long = 0L,
     val confidenceThreshold: Float = 0.5f,
     val nomenclature: Nomenclature = Nomenclature.HINDUSTANI,
     val saFrequency: Float = SettingsRepository.DEFAULT_SA_FREQUENCY,
@@ -74,7 +77,10 @@ class MonitorViewModel(application: Application) : AndroidViewModel(application)
     private val swaraMapper = SwaraMapper()
     private val sessionRecorder = SessionRecorder(application)
 
-    private val _uiState = MutableStateFlow(MonitorUiState())
+    private val maxHistoryPoints = 1200 // ~1 minute at 20fps or ~30s at 40fps
+    private val pitchHistory = PitchRingBuffer(maxHistoryPoints)
+
+    private val _uiState = MutableStateFlow(MonitorUiState(pitchHistory = pitchHistory))
     val uiState: StateFlow<MonitorUiState> = _uiState.asStateFlow()
 
     // Tonic reference settings
@@ -85,8 +91,6 @@ class MonitorViewModel(application: Application) : AndroidViewModel(application)
     private var audioCollectionJob: Job? = null
     private var recordingTimerJob: Job? = null
     private var simulationJob: Job? = null
-
-    private val maxHistoryPoints = 1200 // ~1 minute at 20fps or ~30s at 40fps
 
     init {
         // Collect preferences updates
@@ -172,13 +176,15 @@ class MonitorViewModel(application: Application) : AndroidViewModel(application)
             if (_uiState.value.isRecording) {
                 stopRecording()
             }
+            pitchHistory.clear()
             _uiState.update {
                 it.copy(
                     isMicActive = false,
                     currentSwara = null,
                     frequency = 0f,
                     centDeviation = 0f,
-                    pitchHistory = emptyList() // Fixes the zigzag pattern when mic is turned back on
+                    pitchHistory = pitchHistory,
+                    historyVersion = it.historyVersion + 1
                 )
             }
         }
@@ -202,7 +208,6 @@ class MonitorViewModel(application: Application) : AndroidViewModel(application)
 
                 if (pitchResult.isVoiced && pitchResult.confidence >= confidenceThreshold) {
                     val swaraResult = swaraMapper.mapFrequency(saFrequency, pitchResult.frequency)
-                    val centsFromSa = 1200.0 * log2(pitchResult.frequency.toDouble() / saFrequency.toDouble())
 
                     // Map to display models
                     val info = SwaraInfo(
@@ -214,19 +219,15 @@ class MonitorViewModel(application: Application) : AndroidViewModel(application)
                         saptak = swaraResult.saptak.name
                     )
 
-                    _uiState.update { state ->
-                        val updatedHistory = (state.pitchHistory + PitchPoint(
-                            timestamp = offsetTime,
-                            frequency = pitchResult.frequency,
-                            centFromSa = centsFromSa.toFloat(),
-                            confidence = pitchResult.confidence
-                        )).takeLast(maxHistoryPoints)
+                    pitchHistory.push(offsetTime, pitchResult.frequency, pitchResult.confidence)
 
+                    _uiState.update { state ->
                         state.copy(
                             currentSwara = info,
                             centDeviation = swaraResult.centDeviation,
                             frequency = pitchResult.frequency,
-                            pitchHistory = updatedHistory
+                            pitchHistory = pitchHistory,
+                            historyVersion = state.historyVersion + 1
                         )
                     }
 
@@ -237,20 +238,15 @@ class MonitorViewModel(application: Application) : AndroidViewModel(application)
 
                 } else {
                     // Unvoiced frame
-                    _uiState.update { state ->
-                        // Add an empty pitch point (freq = 0) to scroll the timeline
-                        val updatedHistory = (state.pitchHistory + PitchPoint(
-                            timestamp = offsetTime,
-                            frequency = 0f,
-                            centFromSa = 0f,
-                            confidence = pitchResult.confidence
-                        )).takeLast(maxHistoryPoints)
+                    pitchHistory.push(offsetTime, 0f, pitchResult.confidence)
 
+                    _uiState.update { state ->
                         state.copy(
                             currentSwara = null,
                             frequency = 0f,
                             centDeviation = 0f,
-                            pitchHistory = updatedHistory
+                            pitchHistory = pitchHistory,
+                            historyVersion = state.historyVersion + 1
                         )
                     }
                 }
@@ -378,19 +374,15 @@ class MonitorViewModel(application: Application) : AndroidViewModel(application)
                     saptak = swaraResult.saptak.name
                 )
 
-                _uiState.update { state ->
-                    val updatedHistory = (state.pitchHistory + PitchPoint(
-                        timestamp = offsetTime,
-                        frequency = simFreq,
-                        centFromSa = centsFromSa.toFloat(),
-                        confidence = 0.95f
-                    )).takeLast(maxHistoryPoints)
+                pitchHistory.push(offsetTime, simFreq, 0.95f)
 
+                _uiState.update { state ->
                     state.copy(
                         currentSwara = info,
                         centDeviation = swaraResult.centDeviation,
                         frequency = simFreq,
-                        pitchHistory = updatedHistory
+                        pitchHistory = pitchHistory,
+                        historyVersion = state.historyVersion + 1
                     )
                 }
             }
