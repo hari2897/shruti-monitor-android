@@ -32,6 +32,7 @@ import kotlin.math.sin
 
 import com.shrutimonitor.app.audio.PitchRingBuffer
 import com.shrutimonitor.app.audio.DisplayPitchFilter
+import com.shrutimonitor.app.audio.PitchPipelineTelemetry
 
 /**
  * UI State for the pitch monitor screen.
@@ -200,14 +201,26 @@ class MonitorViewModel(application: Application) : AndroidViewModel(application)
         audioCollectionJob?.cancel()
         
         audioCollectionJob = viewModelScope.launch {
-            audioCaptureManager.audioFrames.collectLatest { frame ->
+            audioCaptureManager.audioFrames.collectLatest { capturedFrame ->
                 val pitchResult = withContext(Dispatchers.Default) {
-                    pitchDetector.detectPitch(frame)
+                    pitchDetector.detectPitch(capturedFrame.samples)
                 }
 
-                val nowUptime = android.os.SystemClock.uptimeMillis()
+                // Preserve the original detector capture timestamp on every pitch point
+                val detectorTimestampMs = capturedFrame.timestampMs
 
-                val filteredFreq = displayPitchFilter.filter(pitchResult.frequency, pitchResult.confidence)
+                val filterResult = displayPitchFilter.filterDetailed(pitchResult.frequency, pitchResult.confidence)
+                val filteredFreq = filterResult.frequency
+
+                // Pipeline telemetry instrumentation (Step 0)
+                PitchPipelineTelemetry.recordCallback(
+                    timestampMs = detectorTimestampMs,
+                    rawFreqHz = pitchResult.frequency,
+                    confidence = pitchResult.confidence,
+                    audioFrame = capturedFrame.samples,
+                    filterResult = filterResult,
+                    saFrequency = saFrequency
+                )
 
                 if (filteredFreq > 0f) {
                     val swaraResult = swaraMapper.mapFrequency(saFrequency, filteredFreq)
@@ -222,7 +235,7 @@ class MonitorViewModel(application: Application) : AndroidViewModel(application)
                         saptak = swaraResult.saptak.name
                     )
 
-                    pitchHistory.push(nowUptime, filteredFreq, pitchResult.confidence)
+                    pitchHistory.push(detectorTimestampMs, filteredFreq, pitchResult.confidence)
 
                     _uiState.update { state ->
                         state.copy(
@@ -240,8 +253,10 @@ class MonitorViewModel(application: Application) : AndroidViewModel(application)
                     }
 
                 } else {
-                    // Unvoiced frame or rejected glitch
-                    pitchHistory.push(nowUptime, 0f, pitchResult.confidence)
+                    // Store rejected frames as explicit UNVOICED/GAP markers. Do NOT convert them into normal 0 Hz pitch samples inside history.
+                    val rms = PitchPipelineTelemetry.computeRms(capturedFrame.samples)
+                    val gapMarker = if (rms < 0.005f) PitchRingBuffer.SILENCE_GAP else PitchRingBuffer.UNVOICED_GAP
+                    pitchHistory.push(detectorTimestampMs, gapMarker, pitchResult.confidence)
 
                     _uiState.update { state ->
                         state.copy(

@@ -25,6 +25,11 @@ import java.util.concurrent.atomic.AtomicBoolean
  * and maintains a sliding window of 2048 samples with 50% overlap (hop size of 1024),
  * emitting complete frames via a SharedFlow.
  */
+data class CapturedAudioFrame(
+    val samples: FloatArray,
+    val timestampMs: Long
+)
+
 class AudioCaptureManager(private val context: Context) {
 
     companion object {
@@ -36,11 +41,12 @@ class AudioCaptureManager(private val context: Context) {
         private const val HOP_SIZE = 1024
     }
 
-    private val _audioFrames = MutableSharedFlow<FloatArray>(extraBufferCapacity = 64)
+    private val _audioFrames = MutableSharedFlow<CapturedAudioFrame>(extraBufferCapacity = 64)
     /**
-     * Exposes a stream of captured audio frames (each 2048 samples, float format).
+     * Exposes a stream of captured audio frames with hardware capture timestamps.
      */
-    val audioFrames: SharedFlow<FloatArray> = _audioFrames.asSharedFlow()
+    val audioFrames: SharedFlow<CapturedAudioFrame> = _audioFrames.asSharedFlow()
+
 
     private val isRunning = AtomicBoolean(false)
     private var audioRecord: AudioRecord? = null
@@ -165,9 +171,11 @@ class AudioCaptureManager(private val context: Context) {
                     analysisBuffer[HOP_SIZE + i] = 0.0f
                 }
 
-                // 3. Emit a copy of the complete 2048-sample analysis window
+                val captureTimeMs = android.os.SystemClock.uptimeMillis()
+
+                // 3. Emit a copy of the complete 2048-sample analysis window with capture timestamp
                 val frameCopy = analysisBuffer.clone()
-                _audioFrames.emit(frameCopy)
+                _audioFrames.emit(CapturedAudioFrame(frameCopy, captureTimeMs))
             }
         }
     }

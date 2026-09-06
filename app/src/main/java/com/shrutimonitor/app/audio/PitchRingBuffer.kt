@@ -10,6 +10,11 @@ import androidx.compose.runtime.Stable
  */
 @Stable
 class PitchRingBuffer(val capacity: Int) {
+    companion object {
+        const val UNVOICED_GAP = -1.0f  // Voiced transition/consonant dip above noise floor
+        const val SILENCE_GAP = -2.0f   // Confirmed silence at noise floor
+    }
+
     init {
         require(capacity > 0) { "Capacity must be greater than 0, was $capacity" }
     }
@@ -32,7 +37,13 @@ class PitchRingBuffer(val capacity: Int) {
 
     @Synchronized
     fun push(timeMs: Long, freqHz: Float, confidence: Float) {
-        times[head] = timeMs
+        val safeTime = if (count > 0) {
+            val prevIdx = (head - 1 + capacity) % capacity
+            maxOf(timeMs, times[prevIdx])
+        } else {
+            timeMs
+        }
+        times[head] = safeTime
         freqs[head] = freqHz
         confidences[head] = confidence
         head = (head + 1) % capacity

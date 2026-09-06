@@ -1,0 +1,74 @@
+﻿# 📜 Shruti Monitor Changelog
+
+All notable changes to the **Shruti Monitor** application are documented in this file.
+
+---
+
+## [Version 1.1.0] - 2026-09-06
+
+### 🌟 Release Summary
+Version 1.1.0 is a landmark audio and graphics engine overhaul for Shruti Monitor. It completely transforms the real-time pitch tracking experience, delivering fluid, continuous vocal pitch contours matching professional reference monitors while preserving Indian classical music nuances (*meend*, *gamakas*, microtonal *shrutis*).
+
+---
+
+### 📸 Release Screenshots
+
+<p align="center">
+  <img src="screenshots/pitch_monitor.png" width="30%" alt="Ascending & Descending Scale Trace" />
+  <img src="screenshots/instruments_tanpura.png" width="30%" alt="Just Intonation Harmonium Keyboard" />
+  <img src="screenshots/ragas_screen.png" width="30%" alt="Ragas Explorer with Aaroha/Avaroha" />
+</p>
+<p align="center">
+  <img src="screenshots/settings_screen.png" width="30%" alt="Calibration & Settings" />
+  <img src="screenshots/pitch_graph_vocal_trace.png" width="30%" alt="Live Vocal Meend Trace" />
+  <img src="screenshots/keyboard_swara.png" width="30%" alt="Tonic Reference Picker" />
+</p>
+
+---
+
+### 🚀 Key Improvements & New Features
+
+#### 1. 🎙️ Continuous, Fluid Vocal Pitch Curve
+- **Root-Cause Fix**: Eliminated the median filter and exponential moving average (EMA) that previously quantized diagonal vocal glides into artificial vertical/horizontal "staircases".
+- **Pure Parabolic Peak Passthrough**: Uses McLeod Pitch Method (MPM) with sub-sample parabolic interpolation, plotting true natural vocal intonation without lag.
+- **Hardware-Accelerated Batched Rendering**: Replaced individual path allocations with OpenGL/Vulkan batched `drawLines`, maintaining a locked 60/120 FPS render loop.
+
+#### 2. ⚡ Time-Aware Dynamic Pitch Discontinuity Rule
+- **Adaptive Velocity Gating**: In previous builds, static cent jump caps fragmented rapid descending scales and fast *taans*. The new rule calculates maximum allowable pitch delta dynamically based on actual elapsed frame time:
+  $$\Delta c_{\text{max}} = \max\left(250\text{¢},\, \min\left(500\text{¢},\, 6000\text{¢/s} \times \Delta t_{\text{actual}}\right)\right)$$
+- **Musical Coherence**: Preserves intentional musical transitions and rapid pitch bends (*gamakas*) as continuous lines while cleanly breaking across genuine octave leaps or musical pauses.
+
+#### 3. 🛡️ Dual-Threshold Voicing Hysteresis (Schmitt Trigger)
+- **Attack Threshold (`0.82`)**: Requires high confidence to enter voicing, completely rejecting room fan rumble, breath intakes, and ambient Tanpura acoustic bleed during silence.
+- **Sustain/Decay Threshold (`0.70`)**: Once voiced, the required threshold drops by $0.12$ to follow soft vocal endings, delicate *nyasa* notes, and quiet low chest resonance (*Mandra Saptak*) without premature dropouts.
+
+#### 4. 🌉 Micro-Gap Visual Bridging
+- Detects transient single-frame detector dropouts ($\le 80\text{ ms}$) caused by acoustic cancellation or room reflections.
+- Visually bridges micro-gaps to maintain continuous visual traces during sustained singing, while strictly respecting genuine musical silence ($> 80\text{ ms}$).
+
+#### 5. ⏱️ Hardware Audio Capture Timestamps
+- Audio capture timestamps from Android's `AudioRecord` hardware buffer are now stamped at ingestion and carried directly to the canvas coordinate mapping (`timeMs - minTimeMs`).
+- Eliminates horizontal frame jitter caused by Android OS thread scheduling and variable garbage-collection pauses.
+
+#### 6. 👆 1-Finger Vertical Pan & Viewport Navigation
+- When **Auto-Follow** is disabled, musicians can freely touch and drag the pitch canvas up or down with one finger to inspect any octave (*Ati-Mandra* to *Taar Saptak*).
+- Added smooth drag velocity handling without interfering with horizontal timeline tracking.
+
+#### 7. 🎯 Accurate Swara Cent Tuning Display
+- Fixed cent deviation readout in the top Swara Card to show the exact microtonal deviation from the current active Just Intonation swara instead of cumulative cents from Sa.
+- Instant color-coded feedback (Mint Green for in-tune, Amber/Red for off-pitch) with configurable in-tune tolerance ($\pm 5\text{¢}$ to $\pm 25\text{¢}$).
+
+#### 8. 📊 In-Memory Telemetry & Diagnostics
+- Added a lightweight, circular diagnostic telemetry buffer (`PitchPipelineTelemetry`) capturing sample timestamps, raw frequencies, confidence scores, and RMS energy for ongoing acoustic performance validation.
+
+---
+
+## [Version 1.0.0] - 2026-09-04
+
+### Initial Public Release
+- **Real-Time Pitch Detector**: McLeod Pitch Method (MPM) 50 Hz – 2000 Hz real-time audio capture.
+- **Microtonal Just Intonation Engine**: 22-Shruti scale mapping for Hindustani and Carnatic classical systems.
+- **High-Fidelity Tanpura Drone**: Sample-based 4-string acoustic sequencer with tempo, fine-tuning (±50¢), and A4=432Hz switch.
+- **Just Intonation Harmonium**: Interactive touch keyboard supporting Madhya and Tara saptaks.
+- **Comprehensive Raga Explorer**: 100+ Hindustani and Carnatic ragas with scale structures, vadi, samvadi, and aaroha/avaroha.
+- **Session Recorder**: High-quality practice recording with direct system share sheet integration.

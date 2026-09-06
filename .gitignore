@@ -19,3 +19,6 @@ Thumbs.db
 
 # Reference decompiled artifacts
 /reference/
+/jadx/
+*.jar
+*.zip

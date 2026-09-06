@@ -6,10 +6,23 @@ An advanced, high-performance Android application built for Indian classical mus
 ## 📸 Screen Previews
 
 <p align="center">
-  <img src="screenshots/pitch_monitor.png" width="30%" alt="Real-time Pitch Monitor" />
-  <img src="screenshots/tanpura_drone.png" width="30%" alt="High-Fidelity Tanpura Drone" />
-  <img src="screenshots/keyboard_swara.png" width="30%" alt="Tonic Picker Keyboard" />
+  <img src="screenshots/pitch_monitor.png" width="23%" alt="Real-time Pitch Monitor" />
+  <img src="screenshots/instruments_tanpura.png" width="23%" alt="Just Intonation Harmonium" />
+  <img src="screenshots/ragas_screen.png" width="23%" alt="Ragas Explorer" />
+  <img src="screenshots/settings_screen.png" width="23%" alt="Tuning & Calibration" />
 </p>
+
+---
+
+## ✨ What's New in Version 1.1.0
+
+- 🎙️ **Smooth, Continuous Vocal Pitch Trace**: Completely re-engineered the pitch rendering pipeline to produce continuous, fluid vocal curves matching reference pitch monitors, eliminating artificial staircase quantization and median filter lag.
+- ⚡ **Time-Aware Dynamic Pitch Discontinuity**: Automatically tracks musical pitch velocity ($\le 6000\text{¢/sec}$) to keep fast *taans*, *gamakas*, and descending scales connected as solid lines while cleanly breaking across genuine octave leaps or pauses.
+- 🛡️ **Dual-Threshold Voicing Hysteresis (Schmitt Trigger)**: Introduces attack (`0.82`) and sustain (`0.70`) confidence thresholds. Silence, breaths, and room rumble are strictly blocked, while soft trailing vocal decays and low *Mandra Saptak* notes stay connected.
+- 🌉 **Micro-Gap Visual Bridging**: Intelligently bridges micro-dropouts ($\le 80\text{ ms}$) caused by acoustic interference, keeping vocal lines continuous without bridging actual musical pauses.
+- ⏱️ **Hardware Capture Timestamps**: Decoupled x-axis plotting from coroutine scheduling by using native `AudioRecord` capture timestamps, eliminating horizontal jitter on high-refresh-rate displays.
+- 👆 **1-Finger Vertical Canvas Scroll**: When Auto-Follow is disabled, freely pan the pitch graph vertically with one finger to explore any octave.
+- 🎯 **Accurate Swara Cent Tuning**: Swara card cent readout directly reflects Just Intonation microtonal deviation (±cents) with color-coded in-tune feedback.
 
 ---
 
@@ -19,7 +32,7 @@ If you just want to use the app on your Android phone, you do not need to build 
 
 1. **Download the Installer (APK)**:
    - On your Android phone, open your web browser and click this direct download link:
-     [Download ShrutiMonitor-v1.0.apk (Direct Link)](https://github.com/hari2897/shruti-monitor-android/releases/download/v1.0/ShrutiMonitor-v1.0.apk)
+     [Download ShrutiMonitor-v1.1.0.apk (Direct Link)](https://github.com/hari2897/shruti-monitor-android/releases/download/v1.1.0/ShrutiMonitor-v1.1.0.apk)
    - Or, go to the **Releases** tab on this GitHub page and download the latest `.apk` file.
 
 2. **Open the File**:

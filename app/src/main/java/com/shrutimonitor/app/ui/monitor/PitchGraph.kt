@@ -58,6 +58,7 @@ import android.graphics.LinearGradient
 import android.graphics.Shader
 import com.shrutimonitor.app.audio.PitchRingBuffer
 import com.shrutimonitor.app.audio.VisibleWindowScratch
+import com.shrutimonitor.app.audio.PitchPipelineTelemetry
 import com.shrutimonitor.app.data.Nomenclature
 import com.shrutimonitor.app.data.Swara
 import com.shrutimonitor.app.ui.theme.OutOfTuneCoral
@@ -68,13 +69,26 @@ import kotlin.math.floor
 import kotlin.math.roundToInt
 
 /**
- * Pitch discontinuity threshold in cents (4 semitones / 400 cents).
+ * Time-aware pitch discontinuity parameters.
  *
- * Breaks the visual line trace across large jumps (consonants, pauses, octave errors),
- * eliminating spurious vertical line spikes, while smoothly preserving legitimate
- * Indian classical meends and gamaks (which typically glide at <= 100-150 cents/frame).
+ * Physiological pitch velocity limits:
+ * - Normal scale-step glides: up to ~2,000 cents/sec.
+ * - Fast gamakas / portamento: up to ~6,000 cents/sec.
+ * - Base floor: 250 cents (~whole tone + safety margin) guarantees that descending/ascending
+ *   scale steps (100-204 cents) and fast ornamental oscillations never break, even at low dt.
+ * - Dynamically scales with actual elapsed time (dtMs = timeMs - prevTime), automatically
+ *   accommodating callback interval spikes (44-58 ms) and bridged gaps (up to 80 ms).
+ * - Upper bound cap: 500 cents (prevents bridging across large leaps, fourths, fifths, or octaves).
  */
-const val DISCONTINUITY_BREAK_CENTS = 400f
+const val MAX_PITCH_VELOCITY_CPS = 6000f // 6000 cents/sec (6.0 cents/ms)
+const val MIN_DISCONTINUITY_CENTS = 250f  // 2.5 semitones floor (guarantees whole tones stay connected)
+const val MAX_DISCONTINUITY_CENTS = 500f  // Upper bound cap
+const val DISCONTINUITY_BREAK_CENTS = 400f // Preserved for backwards compatibility
+
+fun maxPlausibleDeltaCents(dtMs: Long): Float {
+    val velocityBased = (MAX_PITCH_VELOCITY_CPS * dtMs.coerceAtLeast(0L)) / 1000f
+    return maxOf(MIN_DISCONTINUITY_CENTS, minOf(MAX_DISCONTINUITY_CENTS, velocityBased))
+}
 
 private class DrawStats {
     var totalNs = 0L
@@ -375,10 +389,12 @@ fun PitchGraph(
         // Custom Canvas drawing - invalidated on each vsync frame without Composable body recomposition
         Canvas(modifier = Modifier.fillMaxSize()) {
             val drawStart = System.nanoTime()
+            PitchPipelineTelemetry.recordRenderFrame()
             val width = size.width
             val height = size.height
-
             val timeWindowMs = (5000 / zoomX).toLong()
+            val pixelsPerMs = width / timeWindowMs.toFloat()
+            val graphRight = width
 
             val nowMs = if (isLive) {
                 val ft = frameTimeState.longValue
@@ -391,7 +407,7 @@ fun PitchGraph(
 
             val centsRange = 1200f / zoomY
             val heightScale = height / centsRange
-            val timeScale = width / timeWindowMs.toFloat()
+            val timeScale = pixelsPerMs
 
             val centerY = if (autoFollow) centerYState.floatValue else scrollOffsetY
             val centsMin = centerY - (centsRange / 2f)
@@ -462,42 +478,93 @@ fun PitchGraph(
                     var ptIdx = 0
                     var prevX = 0f
                     var prevY = 0f
+                    var prevTime = 0L
                     var prevCents = -1f
+
+                    var hasValidVoicedPoint = false
+                    var inGap = false
+                    var gapStartTime = 0L
+                    var gapStartX = 0f
+                    var gapStartY = 0f
+                    var gapStartCents = -1f
+                    var gapSawConfirmedSilence = false
 
                     for (i in 0 until numPoints) {
                         val freq = windowScratch.freqs[i]
+                        val time = windowScratch.times[i]
+
                         if (freq <= 0f) {
+                            if (freq == PitchRingBuffer.SILENCE_GAP) {
+                                gapSawConfirmedSilence = true
+                            }
+                            if (hasValidVoicedPoint && !inGap) {
+                                inGap = true
+                                gapStartTime = prevTime
+                                gapStartX = prevX
+                                gapStartY = prevY
+                                gapStartCents = prevCents
+                            }
                             prevCents = -1f
                             continue
                         }
 
-                        val time = windowScratch.times[i]
-                        val x = (time - startTime) * timeScale
+                        val timeMs = time
+                        // Compute X from elapsed time relative to graphRight, strictly preserving detector timestamps
+                        val x = graphRight - ((endTime - timeMs) * pixelsPerMs)
                         val centsFromSa = (kotlin.math.ln(freq.toDouble()) - logSa) * ln2Inv
                         val visualCent = Swara.actualToVisualCents(centsFromSa).toFloat()
                         val y = height - (visualCent - centsMin) * heightScale
 
                         if (ptIdx + 4 <= linePts.size) {
-                            if (prevCents < 0f || kotlin.math.abs(visualCent - prevCents) > DISCONTINUITY_BREAK_CENTS) {
-                                // Discontinuity break, unvoiced transition, or isolated note:
-                                // Render round point cap without connecting across discontinuity
-                                linePts[ptIdx] = x
-                                linePts[ptIdx + 1] = y
-                                linePts[ptIdx + 2] = x + 0.5f
-                                linePts[ptIdx + 3] = y
-                            } else {
-                                // Continuous note glide (e.g. meend/gamak): connect previous vertex to current
-                                linePts[ptIdx] = prevX
-                                linePts[ptIdx + 1] = prevY
-                                linePts[ptIdx + 2] = x
-                                linePts[ptIdx + 3] = y
+                            var connected = false
+
+                            if (inGap) {
+                                val gapDurationMs = timeMs - gapStartTime
+                                val centsDiff = kotlin.math.abs(visualCent - gapStartCents)
+                                val isPlausible = centsDiff <= maxPlausibleDeltaCents(gapDurationMs)
+
+                                // Allow visual bridging ONLY when:
+                                // gap <= 80 ms, valid voiced points exist on BOTH sides,
+                                // the pitch transition is plausible for elapsed time,
+                                // and NEVER across confirmed silence.
+                                if (!gapSawConfirmedSilence && gapDurationMs in 1..80 && isPlausible && x >= gapStartX) {
+                                    linePts[ptIdx] = gapStartX
+                                    linePts[ptIdx + 1] = gapStartY
+                                    linePts[ptIdx + 2] = x
+                                    linePts[ptIdx + 3] = y
+                                    ptIdx += 4
+                                    connected = true
+                                }
+                                inGap = false
+                                gapSawConfirmedSilence = false
                             }
-                            ptIdx += 4
+
+                            if (!connected) {
+                                val dtMs = (timeMs - prevTime).coerceAtLeast(0L)
+                                val maxAllowedDeltaCents = maxPlausibleDeltaCents(dtMs)
+                                if (prevCents < 0f || kotlin.math.abs(visualCent - prevCents) > maxAllowedDeltaCents || x < prevX) {
+                                    // Discontinuity break, unvoiced transition, or isolated note:
+                                    // Render round point cap without connecting across discontinuity
+                                    linePts[ptIdx] = x
+                                    linePts[ptIdx + 1] = y
+                                    linePts[ptIdx + 2] = x + 0.5f
+                                    linePts[ptIdx + 3] = y
+                                } else {
+                                    // Continuous note glide (e.g. meend/gamak): connect previous vertex to current
+                                    linePts[ptIdx] = prevX
+                                    linePts[ptIdx + 1] = prevY
+                                    linePts[ptIdx + 2] = x
+                                    linePts[ptIdx + 3] = y
+                                }
+                                ptIdx += 4
+                            }
                         }
 
                         prevX = x
                         prevY = y
+                        prevTime = timeMs
                         prevCents = visualCent
+                        hasValidVoicedPoint = true
                     }
 
                     if (ptIdx >= 4) {

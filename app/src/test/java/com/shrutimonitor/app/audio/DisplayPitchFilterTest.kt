@@ -1,4 +1,4 @@
-﻿package com.shrutimonitor.app.audio
+package com.shrutimonitor.app.audio
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -110,4 +110,35 @@ class DisplayPitchFilterTest {
         // Should immediately be 300f, NOT an EMA blend with 200f!
         assertEquals(300f, fResume, 0.01f)
     }
+
+    @Test
+    fun testVoicingHysteresisDualThresholds() {
+        // Default start=0.82, continue=0.70
+        val filter = DisplayPitchFilter(startConfidenceThreshold = 0.82f, continueConfidenceThreshold = 0.70f)
+
+        // 1. Below start threshold (0.80 < 0.82) -> rejected
+        val f1 = filter.filter(200f, 0.80f)
+        assertEquals(0f, f1, 1e-4f)
+
+        // 2. Crosses start threshold (0.83 >= 0.82) -> enters voiced segment!
+        val f2 = filter.filter(200f, 0.83f)
+        assertEquals(200f, f2, 1e-4f)
+
+        // 3. Drops below start threshold but stays above continue threshold (0.75 >= 0.70) -> stays voiced!
+        val f3 = filter.filter(200f, 0.75f)
+        assertEquals(200f, f3, 1e-4f)
+
+        // 4. Drops below continue threshold (0.68 < 0.70) -> exits voiced segment
+        val f4 = filter.filter(200f, 0.68f)
+        assertEquals(0f, f4, 1e-4f)
+
+        // 5. Subsequent frame at 0.78 is below start threshold (0.78 < 0.82) -> stays rejected until 0.82 reached!
+        val f5 = filter.filter(200f, 0.78f)
+        assertEquals(0f, f5, 1e-4f)
+
+        // 6. Strong attack at 0.85 -> voiced again
+        val f6 = filter.filter(200f, 0.85f)
+        assertEquals(200f, f6, 1e-4f)
+    }
 }
+
