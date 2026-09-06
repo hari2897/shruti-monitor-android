@@ -1,14 +1,11 @@
 package com.shrutimonitor.app.ui.monitor
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.EaseInOut
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -31,11 +28,15 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -46,12 +47,13 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.graphics.toArgb
-import com.shrutimonitor.app.audio.PitchPoint
+import com.shrutimonitor.app.audio.PitchRingBuffer
+import com.shrutimonitor.app.audio.VisibleWindowScratch
 import com.shrutimonitor.app.data.Nomenclature
 import com.shrutimonitor.app.data.Swara
 import com.shrutimonitor.app.ui.theme.OutOfTuneCoral
@@ -60,18 +62,16 @@ import com.shrutimonitor.app.ui.theme.TextSecondary
 import kotlin.math.ceil
 import kotlin.math.floor
 
-import com.shrutimonitor.app.audio.PitchRingBuffer
-
 /**
- * Custom 60FPS Canvas for real-time scrolling pitch trace visualization.
+ * Custom 60/120 FPS Canvas for real-time scrolling pitch trace visualization.
  *
  * Implements:
- * - Scrolling timeline (right to left)
- * - Auto-Follow mode which centers the vocal range
- * - Grid lines at Just Intonation positions relative to Sa
- * - Dimmed inactive swaras for Raga filtering
- * - Pinch-to-zoom on X-axis and dragging for panning (both horizontal and vertical)
- * - LIVE indicator and toggle control chips
+ * - Decoupled rendering: frame clock driven at display's native refresh rate (60/120Hz)
+ * - Single-lock snapshot via copyVisibleWindow for lock-free draw
+ * - Deadband auto-follow (2-cent threshold) to prevent vibrato hunting
+ * - Continuous horizontal glide mapped to monotonic uptime
+ * - Draw-phase invalidation only (0 recompositions/sec of PitchGraph body)
+ * - Zero allocations per frame in the draw hot path
  */
 @Composable
 fun PitchGraph(
@@ -91,53 +91,85 @@ fun PitchGraph(
     var scrollOffsetX by remember { mutableFloatStateOf(0f) } // ms offset from end
     var scrollOffsetY by remember { mutableFloatStateOf(0f) } // cents shift from Sa
 
-    // Smooth centering for auto-follow
-    var smoothedCenterCents by remember { mutableFloatStateOf(0f) }
+    // Monotonic frame time (ms) driven by Choreographer withFrameNanos.
+    // NOTE: Read ONLY inside the Canvas draw lambda to avoid recomposing PitchGraph body!
+    val frameTimeState = remember { mutableLongStateOf(0L) }
 
-    var lastVoicedFreq by remember { mutableFloatStateOf(0f) }
-    for (i in pitchHistory.size - 1 downTo 0) {
-        val f = pitchHistory.freqAt(i)
-        if (f > 0f) {
-            lastVoicedFreq = f
-            break
-        }
-    }
-    
-    LaunchedEffect(lastVoicedFreq, autoFollow, saFrequency) {
-        if (autoFollow && lastVoicedFreq > 0f && saFrequency > 0f) {
-            // Smoothly interpolate the center cents position to prevent jitter
-            val centsFromSa = 1200.0 * kotlin.math.log2(lastVoicedFreq.toDouble() / saFrequency.toDouble())
-            val targetCenter = Swara.actualToVisualCents(centsFromSa).toFloat()
-            val alpha = 0.15f
-            smoothedCenterCents = smoothedCenterCents + alpha * (targetCenter - smoothedCenterCents)
-        } else if (!autoFollow) {
-            smoothedCenterCents = 0f
-        }
-    }
+    // Smooth centering for auto-follow (visual cents).
+    // NOTE: Read ONLY inside Canvas draw lambda!
+    val centerYState = remember { mutableFloatStateOf(0f) }
+
+    // Monotonic timestamp when live mode was paused/switched to scroll
+    var freezeTimeMs by remember { mutableLongStateOf(0L) }
 
     // Track whether first drag has happened to trigger onScrollStart
     var hasTriggeredScrollExit by remember { mutableStateOf(false) }
 
-    // Reset scroll-exit flag when switching back to live
+    // Reset scroll-exit flag and freeze/unfreeze time when switching live modes
     LaunchedEffect(isLive) {
-        if (isLive) hasTriggeredScrollExit = false
+        if (isLive) {
+            hasTriggeredScrollExit = false
+        } else {
+            freezeTimeMs = android.os.SystemClock.uptimeMillis()
+        }
     }
 
-    // Calculate Y-axis range
-    val centerY = if (autoFollow) smoothedCenterCents else scrollOffsetY
-    val centsMin = centerY - 600f
-    val centsMax = centerY + 600f
-    val centsRange = 1200f
+    // Native display frame-clock loop (60 / 120 Hz)
+    // Updates frameTimeState and centerYState (with 2-cent deadband)
+    LaunchedEffect(isLive, autoFollow, saFrequency) {
+        if (!isLive) return@LaunchedEffect
 
-    // Timeline duration visible on screen (default 5 seconds = 5000ms, stretched by zoom)
-    val timeWindowMs = (5000 / zoomX).toLong()
+        var currentCenterY = centerYState.floatValue
+        var targetCenterY = currentCenterY
+        var lastTargetCenterY = currentCenterY
+
+        while (true) {
+            withFrameNanos { frameNanos ->
+                val nowMs = frameNanos / 1_000_000L
+                frameTimeState.longValue = nowMs
+
+                if (autoFollow && saFrequency > 0f) {
+                    val voicedFreq = pitchHistory.lastVoicedFreq()
+                    if (voicedFreq > 0f) {
+                        val centsFromSa = 1200.0 * kotlin.math.log2(voicedFreq.toDouble() / saFrequency.toDouble())
+                        val visualCents = Swara.actualToVisualCents(centsFromSa).toFloat()
+                        // 2-cent deadband prevents hunting/jitter on natural vocal vibrato
+                        if (kotlin.math.abs(visualCents - lastTargetCenterY) > 2f) {
+                            lastTargetCenterY = visualCents
+                            targetCenterY = visualCents
+                        }
+                    }
+                    // Smooth exponential follow (~100ms response time at 60Hz)
+                    currentCenterY += 0.08f * (targetCenterY - currentCenterY)
+                    centerYState.floatValue = currentCenterY
+                } else if (!autoFollow) {
+                    targetCenterY = 0f
+                    currentCenterY = 0f
+                    centerYState.floatValue = 0f
+                }
+            }
+        }
+    }
+
+    // Recomposition verification: monitor that PitchGraph body stays at 0 recompositions/sec during live singing
+    var recompositionCount by remember { mutableIntStateOf(0) }
+    SideEffect {
+        recompositionCount++
+    }
+    LaunchedEffect(Unit) {
+        var lastCount = 0
+        while (true) {
+            kotlinx.coroutines.delay(2000)
+            val current = recompositionCount
+            android.util.Log.d("PitchGraphPerf", "PitchGraph recompositions in last 2s: ${current - lastCount} (total: $current)")
+            lastCount = current
+        }
+    }
 
     // Capture theme colors to avoid calling Composable functions in draw/touch lambdas
     val graphBg = MaterialTheme.colorScheme.surfaceContainerLowest
     val primaryColor = MaterialTheme.colorScheme.primary
     val secondaryColor = MaterialTheme.colorScheme.secondary
-    val onSurfaceVariantColor = MaterialTheme.colorScheme.onSurfaceVariant
-    val onSurfaceColor = MaterialTheme.colorScheme.onSurface
 
     // Precalculate and cache drawing resources outside draw loop
     val density = androidx.compose.ui.platform.LocalDensity.current
@@ -161,6 +193,34 @@ fun PitchGraph(
         }
     }
     val tracePath = remember { Path() }
+    val windowScratch = remember { VisibleWindowScratch(1200) }
+
+    // Precomputed Swara label table for octaves -2..2 and 12 swaras
+    // Eliminates string formatting allocations during 60/120Hz rendering
+    val precomputedLabels = remember(nomenclature) {
+        Array(5) { octIdx ->
+            val oct = octIdx - 2
+            Array(12) { swaraIdx ->
+                val swara = Swara.fromIndex(swaraIdx)
+                val abbr = if (nomenclature == Nomenclature.HINDUSTANI) {
+                    swara.hindustaniAbbr
+                } else {
+                    swara.carnaticAbbr
+                }
+                when (oct) {
+                    -1 -> "$abbr."
+                    1 -> "'$abbr"
+                    -2 -> "$abbr.."
+                    2 -> "''$abbr"
+                    else -> abbr
+                }
+            }
+        }
+    }
+
+    // Brush cache to avoid per-frame allocations
+    var cachedBrush by remember { mutableStateOf<Brush?>(null) }
+    var cachedBrushWidth by remember { mutableFloatStateOf(0f) }
 
     Box(
         modifier = modifier
@@ -188,19 +248,29 @@ fun PitchGraph(
                 }
             }
     ) {
-        // Custom Canvas drawing
+        // Custom Canvas drawing - invalidated on each vsync frame without Composable body recomposition
         Canvas(modifier = Modifier.fillMaxSize()) {
             val width = size.width
             val height = size.height
 
-            val bufferSize = pitchHistory.size
-            val latestTime = if (bufferSize > 0) pitchHistory.timeAt(bufferSize - 1) else 0L
-            val endTime = if (isLive) latestTime else latestTime - scrollOffsetX.toLong()
+            val timeWindowMs = (5000 / zoomX).toLong()
+
+            val nowMs = if (isLive) {
+                val ft = frameTimeState.longValue
+                if (ft == 0L) android.os.SystemClock.uptimeMillis() else ft
+            } else {
+                freezeTimeMs
+            }
+            val endTime = if (isLive) nowMs else freezeTimeMs - scrollOffsetX.toLong()
             val startTime = endTime - timeWindowMs
 
-            // Precompute frame-level scale factors
+            val centsRange = 1200f
             val heightScale = height / centsRange
             val timeScale = width / timeWindowMs.toFloat()
+
+            val centerY = if (autoFollow) centerYState.floatValue else scrollOffsetY
+            val centsMin = centerY - 600f
+            val centsMax = centerY + 600f
 
             // ── DRAW GRID LINES & LABELS ──
             val startOctave = floor(centsMin / 1200.0).toInt()
@@ -210,16 +280,14 @@ fun PitchGraph(
             textPaint.textSize = textSizePx
 
             for (oct in startOctave..endOctave) {
+                val octIdx = (oct + 2).coerceIn(0, 4)
                 for (i in 0..11) {
-                    val absoluteCents = oct * 1200.0 + (i * 100.0) // Visually equally spaced swaras
+                    val absoluteCents = oct * 1200.0 + (i * 100.0)
 
                     if (absoluteCents in centsMin..centsMax) {
                         val y = height - (absoluteCents.toFloat() - centsMin) * heightScale
-                        
-                        // Check Raga filter
+
                         val isInRaga = activeRagaSwaras == null || activeRagaSwaras.contains(i)
-                        
-                        // Pick color intensity based on Raga and whether it is Sa/Pa
                         val lineOpacity = if (isInRaga) {
                             if (i == 0) 0.35f else 0.20f
                         } else {
@@ -227,7 +295,6 @@ fun PitchGraph(
                         }
                         val strokeW = if (i == 0 && isInRaga) thickGridStroke else thinGridStroke
 
-                        // Grid horizontal line
                         drawLine(
                             color = primaryColor.copy(alpha = lineOpacity),
                             start = Offset(0f, y),
@@ -235,21 +302,8 @@ fun PitchGraph(
                             strokeWidth = strokeW
                         )
 
-                        // Draw swara abbreviation and octave designation
                         if (isInRaga) {
-                            val swara = Swara.fromIndex(i)
-                            val swaraAbbr = if (nomenclature == Nomenclature.HINDUSTANI) {
-                                swara.hindustaniAbbr
-                            } else {
-                                swara.carnaticAbbr
-                            }
-                            
-                            val labelText = when (oct) {
-                                -1 -> "$swaraAbbr."
-                                1 -> "'$swaraAbbr"
-                                else -> swaraAbbr
-                            }
-
+                            val labelText = precomputedLabels[octIdx][i]
                             drawContext.canvas.nativeCanvas.drawText(
                                 labelText,
                                 textXPx,
@@ -261,7 +315,7 @@ fun PitchGraph(
                 }
             }
 
-            // Draw Central Reference "Sa" Indicator (Mundu / Madhya / Tara)
+            // Central Reference "Sa" Indicator (Mundu / Madhya / Tara)
             val saY = height - (0f - centsMin) * heightScale
             if (saY in 0f..height) {
                 drawLine(
@@ -273,47 +327,52 @@ fun PitchGraph(
             }
 
             // ── DRAW PITCH TRACE ──
-            if (bufferSize > 0 && saFrequency > 0f) {
-                val firstVisible = pitchHistory.findFirstIndexAtOrAfter(startTime)
-                val lastVisible = pitchHistory.findLastIndexAtOrBefore(endTime)
+            if (saFrequency > 0f) {
+                val numPoints = pitchHistory.copyVisibleWindow(startTime, endTime, windowScratch)
 
-                if (firstVisible <= lastVisible && firstVisible < bufferSize && lastVisible >= 0) {
+                if (numPoints > 0) {
                     tracePath.reset()
-                    var isPathStarted = false
+                    var hasSegments = false
+                    var isSegmentStarted = false
 
                     val logSa = kotlin.math.ln(saFrequency.toDouble())
                     val ln2Inv = 1200.0 / kotlin.math.ln(2.0)
 
-                    for (i in firstVisible..lastVisible) {
-                        val freq = pitchHistory.freqAt(i)
+                    for (i in 0 until numPoints) {
+                        val freq = windowScratch.freqs[i]
                         if (freq <= 0f) {
-                            // Unvoiced gap - breaks the trace
-                            isPathStarted = false
+                            isSegmentStarted = false
                             continue
                         }
 
-                        val time = pitchHistory.timeAt(i)
+                        val time = windowScratch.times[i]
                         val x = (time - startTime) * timeScale
                         val centsFromSa = (kotlin.math.ln(freq.toDouble()) - logSa) * ln2Inv
                         val visualCent = Swara.actualToVisualCents(centsFromSa).toFloat()
                         val y = height - (visualCent - centsMin) * heightScale
 
-                        if (!isPathStarted) {
+                        if (!isSegmentStarted) {
                             tracePath.moveTo(x, y)
-                            isPathStarted = true
+                            tracePath.lineTo(x + 0.1f, y) // ensure single isolated sample draws as round dot
+                            isSegmentStarted = true
+                            hasSegments = true
                         } else {
                             tracePath.lineTo(x, y)
                         }
                     }
 
-                    if (isPathStarted) {
-                        val traceBrush = Brush.horizontalGradient(
-                            colors = listOf(secondaryColor.copy(alpha = 0.6f), primaryColor),
-                            startX = 0f,
-                            endX = width
-                        )
+                    if (hasSegments) {
+                        if (cachedBrush == null || cachedBrushWidth != width) {
+                            cachedBrushWidth = width
+                            cachedBrush = Brush.horizontalGradient(
+                                colors = listOf(secondaryColor.copy(alpha = 0.6f), primaryColor),
+                                startX = 0f,
+                                endX = width
+                            )
+                        }
+                        val traceBrush = cachedBrush!!
 
-                        // 1. Draw Glow trace (blur effect simulation with thin semi-transparent path)
+                        // 1. Glow trace
                         drawPath(
                             path = tracePath,
                             brush = traceBrush,
@@ -321,7 +380,7 @@ fun PitchGraph(
                             alpha = 0.2f
                         )
 
-                        // 2. Draw Sharp core trace
+                        // 2. Core sharp trace
                         drawPath(
                             path = tracePath,
                             brush = traceBrush,

@@ -195,7 +195,6 @@ class MonitorViewModel(application: Application) : AndroidViewModel(application)
      */
     private fun startAudioProcessing() {
         audioCollectionJob?.cancel()
-        val startTime = System.currentTimeMillis()
         
         audioCollectionJob = viewModelScope.launch {
             audioCaptureManager.audioFrames.collectLatest { frame ->
@@ -203,8 +202,7 @@ class MonitorViewModel(application: Application) : AndroidViewModel(application)
                     pitchDetector.detectPitch(frame)
                 }
 
-                val now = System.currentTimeMillis()
-                val offsetTime = now - startTime
+                val nowUptime = android.os.SystemClock.uptimeMillis()
 
                 if (pitchResult.isVoiced && pitchResult.confidence >= confidenceThreshold) {
                     val swaraResult = swaraMapper.mapFrequency(saFrequency, pitchResult.frequency)
@@ -219,7 +217,7 @@ class MonitorViewModel(application: Application) : AndroidViewModel(application)
                         saptak = swaraResult.saptak.name
                     )
 
-                    pitchHistory.push(offsetTime, pitchResult.frequency, pitchResult.confidence)
+                    pitchHistory.push(nowUptime, pitchResult.frequency, pitchResult.confidence)
 
                     _uiState.update { state ->
                         state.copy(
@@ -238,7 +236,7 @@ class MonitorViewModel(application: Application) : AndroidViewModel(application)
 
                 } else {
                     // Unvoiced frame
-                    pitchHistory.push(offsetTime, 0f, pitchResult.confidence)
+                    pitchHistory.push(nowUptime, 0f, pitchResult.confidence)
 
                     _uiState.update { state ->
                         state.copy(
@@ -344,15 +342,13 @@ class MonitorViewModel(application: Application) : AndroidViewModel(application)
         }
 
         _uiState.update { it.copy(isMicActive = true) }
-        val startTime = System.currentTimeMillis()
 
         simulationJob = viewModelScope.launch {
             var step = 0
             while (true) {
                 delay(100)
                 step++
-                val now = System.currentTimeMillis()
-                val offsetTime = now - startTime
+                val nowUptime = android.os.SystemClock.uptimeMillis()
 
                 // Generate pitch that sweeps across swaras
                 val t = step * 0.05
@@ -374,7 +370,7 @@ class MonitorViewModel(application: Application) : AndroidViewModel(application)
                     saptak = swaraResult.saptak.name
                 )
 
-                pitchHistory.push(offsetTime, simFreq, 0.95f)
+                pitchHistory.push(nowUptime, simFreq, 0.95f)
 
                 _uiState.update { state ->
                     state.copy(

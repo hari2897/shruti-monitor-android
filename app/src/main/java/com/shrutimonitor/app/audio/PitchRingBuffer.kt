@@ -1,11 +1,14 @@
 package com.shrutimonitor.app.audio
 
+import androidx.compose.runtime.Stable
+
 /**
  * Fixed-capacity primitive ring buffer for pitch history.
  * Backed by parallel primitive arrays to eliminate GC allocations during real-time tracking.
  *
  * @param capacity Maximum number of history points retained (e.g. 1200 points).
  */
+@Stable
 class PitchRingBuffer(val capacity: Int) {
     init {
         require(capacity > 0) { "Capacity must be greater than 0, was $capacity" }
@@ -151,6 +154,51 @@ class PitchRingBuffer(val capacity: Int) {
         return result
     }
 
+    /**
+     * Copies the visible window between [startTimeMs] and [endTimeMs] into [scratch]
+     * under a single monitor lock. This allows callers to render completely lock-free.
+     *
+     * @return the number of points copied into [scratch].
+     */
+    @Synchronized
+    fun copyVisibleWindow(
+        startTimeMs: Long,
+        endTimeMs: Long,
+        scratch: VisibleWindowScratch
+    ): Int {
+        val first = findFirstIndexAtOrAfter(startTimeMs)
+        val last = findLastIndexAtOrBefore(endTimeMs)
+
+        if (first > last || first >= count || last < 0) {
+            scratch.count = 0
+            return 0
+        }
+
+        val numPoints = (last - first + 1).coerceAtMost(scratch.maxPoints)
+        val startPos = (head - count + first + capacity * 2) % capacity
+
+        for (i in 0 until numPoints) {
+            val physicalIdx = (startPos + i) % capacity
+            scratch.times[i] = times[physicalIdx]
+            scratch.freqs[i] = freqs[physicalIdx]
+        }
+        scratch.count = numPoints
+        return numPoints
+    }
+
+    /**
+     * Returns the most recent voiced frequency in Hz (where freq > 0),
+     * or 0f if none found.
+     */
+    @Synchronized
+    fun lastVoicedFreq(): Float {
+        for (i in count - 1 downTo 0) {
+            val f = freqs[physicalIndex(i)]
+            if (f > 0f) return f
+        }
+        return 0f
+    }
+
     private fun checkIndex(index: Int) {
         if (index < 0 || index >= count) {
             throw IndexOutOfBoundsException("Index $index out of bounds for size $count (capacity $capacity)")
@@ -160,4 +208,13 @@ class PitchRingBuffer(val capacity: Int) {
     private fun physicalIndex(index: Int): Int {
         return (head - count + index + capacity * 2) % capacity
     }
+}
+
+/**
+ * Reusable container for a lock-free snapshot of visible pitch points for rendering.
+ */
+class VisibleWindowScratch(val maxPoints: Int = 1200) {
+    val times = LongArray(maxPoints)
+    val freqs = FloatArray(maxPoints)
+    var count = 0
 }

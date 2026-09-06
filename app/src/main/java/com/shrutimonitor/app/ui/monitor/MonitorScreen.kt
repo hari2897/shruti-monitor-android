@@ -78,6 +78,10 @@ fun MonitorScreen(
     val showBottomDrawer = state.showControls
     val view = LocalView.current
 
+    val onLiveClick = remember(viewModel) { { viewModel.setLiveMode(true) } }
+    val onScrollStart = remember(viewModel) { { viewModel.setLiveMode(false) } }
+    val onAutoFollowToggle = remember(viewModel) { { viewModel.toggleAutoFollow() } }
+
     // Synchronize immersive mode with showBottomDrawer state
     LaunchedEffect(showBottomDrawer) {
         val window = (context as? android.app.Activity)?.window
@@ -171,9 +175,9 @@ fun MonitorScreen(
                     isLive = state.isLiveMode,
                     autoFollow = state.autoFollow,
                     nomenclature = state.nomenclature,
-                    onLiveClick = { viewModel.setLiveMode(true) },
-                    onScrollStart = { viewModel.setLiveMode(false) },
-                    onAutoFollowToggle = { viewModel.toggleAutoFollow() },
+                    onLiveClick = onLiveClick,
+                    onScrollStart = onScrollStart,
+                    onAutoFollowToggle = onAutoFollowToggle,
                     modifier = Modifier.fillMaxSize()
                 )
 

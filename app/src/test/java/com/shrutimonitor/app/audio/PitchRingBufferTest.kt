@@ -192,4 +192,46 @@ class PitchRingBufferTest {
         assertEquals(10, buffer.findFirstIndexAtOrAfter(2000L))
         assertEquals(9, buffer.findLastIndexAtOrBefore(2000L))
     }
+
+    @Test
+    fun testCopyVisibleWindow() {
+        val buffer = PitchRingBuffer(10)
+        for (i in 1..15) {
+            buffer.push(i * 100L, i * 10f, 0.8f)
+        }
+        // Active timestamps: 600..1500 (indices 0..9)
+        val scratch = VisibleWindowScratch(10)
+        val copied = buffer.copyVisibleWindow(800L, 1200L, scratch)
+
+        assertEquals(5, copied)
+        assertEquals(5, scratch.count)
+        assertEquals(800L, scratch.times[0])
+        assertEquals(80f, scratch.freqs[0], 1e-4f)
+        assertEquals(1200L, scratch.times[4])
+        assertEquals(120f, scratch.freqs[4], 1e-4f)
+
+        // Non-overlapping window returns 0
+        val nonOverlapping = buffer.copyVisibleWindow(2000L, 3000L, scratch)
+        assertEquals(0, nonOverlapping)
+        assertEquals(0, scratch.count)
+    }
+
+    @Test
+    fun testLastVoicedFreq() {
+        val buffer = PitchRingBuffer(5)
+        assertEquals(0f, buffer.lastVoicedFreq(), 1e-4f)
+
+        buffer.push(100L, 0f, 0.1f) // unvoiced
+        assertEquals(0f, buffer.lastVoicedFreq(), 1e-4f)
+
+        buffer.push(200L, 130.8f, 0.9f) // voiced
+        assertEquals(130.8f, buffer.lastVoicedFreq(), 1e-4f)
+
+        buffer.push(300L, 0f, 0.2f) // unvoiced pause
+        // Should retain the previous voiced frequency!
+        assertEquals(130.8f, buffer.lastVoicedFreq(), 1e-4f)
+
+        buffer.push(400L, 261.6f, 0.95f) // new voiced note
+        assertEquals(261.6f, buffer.lastVoicedFreq(), 1e-4f)
+    }
 }
