@@ -10,7 +10,8 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -35,6 +36,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
@@ -106,8 +108,14 @@ fun PitchGraph(
 ) {
     // 1. Gesture Zoom & Offset variables
     var zoomX by remember { mutableFloatStateOf(1.0f) }
+    var zoomY by remember { mutableFloatStateOf(1.0f) }
     var scrollOffsetX by remember { mutableFloatStateOf(0f) } // ms offset from end
     var scrollOffsetY by remember { mutableFloatStateOf(0f) } // cents shift from Sa
+
+    // Keep updated state references for pointerInput / touch coroutines
+    val currentAutoFollow by rememberUpdatedState(autoFollow)
+    val currentIsLive by rememberUpdatedState(isLive)
+    val currentOnScrollStart by rememberUpdatedState(onScrollStart)
 
     // Monotonic frame time (ms) driven by Choreographer withFrameNanos.
     // NOTE: Read ONLY inside the Canvas draw lambda to avoid recomposing PitchGraph body!
@@ -116,6 +124,13 @@ fun PitchGraph(
     // Smooth centering for auto-follow (visual cents).
     // NOTE: Read ONLY inside Canvas draw lambda!
     val centerYState = remember { mutableFloatStateOf(0f) }
+
+    // Smoothly initialize manual scrollOffsetY from current auto-follow position when autoFollow is toggled off
+    LaunchedEffect(autoFollow) {
+        if (!autoFollow) {
+            scrollOffsetY = centerYState.floatValue
+        }
+    }
 
     // Monotonic timestamp when live mode was paused/switched to scroll
     var freezeTimeMs by remember { mutableLongStateOf(0L) }
@@ -137,7 +152,7 @@ fun PitchGraph(
     LaunchedEffect(isLive, autoFollow, saFrequency) {
         if (!isLive) return@LaunchedEffect
 
-        var currentCenterY = centerYState.floatValue
+        var currentCenterY = if (autoFollow) centerYState.floatValue else scrollOffsetY
         var targetCenterY = currentCenterY
         var lastTargetCenterY = currentCenterY
 
@@ -161,9 +176,10 @@ fun PitchGraph(
                     currentCenterY += 0.08f * (targetCenterY - currentCenterY)
                     centerYState.floatValue = currentCenterY
                 } else if (!autoFollow) {
-                    targetCenterY = 0f
-                    currentCenterY = 0f
-                    centerYState.floatValue = 0f
+                    currentCenterY = scrollOffsetY
+                    targetCenterY = scrollOffsetY
+                    lastTargetCenterY = scrollOffsetY
+                    centerYState.floatValue = scrollOffsetY
                 }
             }
         }
@@ -240,11 +256,11 @@ fun PitchGraph(
     var cachedShaderSecondary by remember { mutableIntStateOf(0) }
     var cachedShader by remember { mutableStateOf<Shader?>(null) }
 
-    // Precomputed Swara label table for octaves -2..2 and 12 swaras
-    // Eliminates string formatting allocations during 60/120Hz rendering
+    // Precomputed Swara label table for octaves -4..4 and 12 swaras
+    // Eliminates string formatting allocations during 60/120Hz rendering across all zoom levels
     val precomputedLabels = remember(nomenclature) {
-        Array(5) { octIdx ->
-            val oct = octIdx - 2
+        Array(9) { octIdx ->
+            val oct = octIdx - 4
             Array(12) { swaraIdx ->
                 val swara = Swara.fromIndex(swaraIdx)
                 val abbr = if (nomenclature == Nomenclature.HINDUSTANI) {
@@ -257,6 +273,10 @@ fun PitchGraph(
                     1 -> "'$abbr"
                     -2 -> "$abbr.."
                     2 -> "''$abbr"
+                    -3 -> "$abbr..."
+                    3 -> "'''$abbr"
+                    -4 -> "$abbr...."
+                    4 -> "''''$abbr"
                     else -> abbr
                 }
             }
@@ -269,23 +289,86 @@ fun PitchGraph(
             .clip(RoundedCornerShape(24.dp))
             .background(graphBg)
             .pointerInput(Unit) {
-                detectTransformGestures { _, pan, zoom, _ ->
-                    // Pinch-to-zoom on X axis
-                    zoomX = (zoomX * zoom).coerceIn(0.5f, 3.0f)
+                awaitEachGesture {
+                    awaitFirstDown(requireUnconsumed = false)
+                    var isPinching = false
+                    var isHorizontalDrag = false
+                    var isVerticalDrag = false
+                    var totalDragX = 0f
+                    var totalDragY = 0f
+                    val touchSlop = viewConfiguration.touchSlop
 
-                    // Any drag exits live mode so user can inspect history
-                    if (isLive && (pan.x != 0f || pan.y != 0f) && !hasTriggeredScrollExit) {
-                        hasTriggeredScrollExit = true
-                        onScrollStart()
-                    }
+                    do {
+                        val event = awaitPointerEvent()
+                        val pointers = event.changes
+                        val pressedPointers = pointers.filter { it.pressed }
+                        val pointerCount = pressedPointers.size
 
-                    // Horizontal scroll: dragging right pulls content right to reveal older data
-                    scrollOffsetX = (scrollOffsetX + pan.x * 12 / zoomX).coerceAtLeast(0f)
+                        if (pointerCount >= 2) {
+                            isPinching = true
+                            val p1 = pressedPointers[0]
+                            val p2 = pressedPointers[1]
 
-                    // Vertical scroll (only when auto-follow is off)
-                    if (!autoFollow) {
-                        scrollOffsetY += pan.y * 1.5f
-                    }
+                            val currDistX = kotlin.math.abs(p1.position.x - p2.position.x)
+                            val prevDistX = kotlin.math.abs(p1.previousPosition.x - p2.previousPosition.x)
+                            val currDistY = kotlin.math.abs(p1.position.y - p2.position.y)
+                            val prevDistY = kotlin.math.abs(p1.previousPosition.y - p2.previousPosition.y)
+
+                            val deltaDistX = kotlin.math.abs(currDistX - prevDistX)
+                            val deltaDistY = kotlin.math.abs(currDistY - prevDistY)
+
+                            // Two-finger pinch:
+                            // Vertical pinch zoom: adjusts pitch axis scale without pausing live feed
+                            if (prevDistY > 20f && currDistY > 20f && deltaDistY >= deltaDistX * 0.4f) {
+                                val zoomYRatio = currDistY / prevDistY
+                                zoomY = (zoomY * zoomYRatio).coerceIn(0.25f, 6.0f)
+                            }
+
+                            // Horizontal pinch zoom: adjusts time window scale without pausing live feed
+                            if (prevDistX > 20f && currDistX > 20f && deltaDistX >= deltaDistY * 0.4f) {
+                                val zoomXRatio = currDistX / prevDistX
+                                zoomX = (zoomX * zoomXRatio).coerceIn(0.5f, 3.0f)
+                            }
+
+                            p1.consume()
+                            p2.consume()
+                        } else if (pointerCount == 1 && !isPinching) {
+                            val change = pressedPointers[0]
+                            val dx = change.position.x - change.previousPosition.x
+                            val dy = change.position.y - change.previousPosition.y
+                            totalDragX += dx
+                            totalDragY += dy
+
+                            if (!isHorizontalDrag && !isVerticalDrag) {
+                                val absX = kotlin.math.abs(totalDragX)
+                                val absY = kotlin.math.abs(totalDragY)
+                                if (absX > touchSlop || absY > touchSlop) {
+                                    if (absX > absY) {
+                                        isHorizontalDrag = true
+                                        if (currentIsLive && !hasTriggeredScrollExit) {
+                                            hasTriggeredScrollExit = true
+                                            currentOnScrollStart()
+                                        }
+                                    } else if (!currentAutoFollow) {
+                                        isVerticalDrag = true
+                                    }
+                                }
+                            }
+
+                            if (isHorizontalDrag) {
+                                // Scrub backwards in time (dragging right reveals older history)
+                                scrollOffsetX = (scrollOffsetX + dx * 12 / zoomX).coerceAtLeast(0f)
+                                change.consume()
+                            } else if (isVerticalDrag) {
+                                // Vertical pan across the y-axis when auto-follow is disabled (leaves LIVE active)
+                                val centsRange = 1200f / zoomY
+                                val heightPx = size.height.toFloat().coerceAtLeast(1f)
+                                val centsShift = dy * (centsRange / heightPx)
+                                scrollOffsetY = (scrollOffsetY + centsShift).coerceIn(-4800f, 4800f)
+                                change.consume()
+                            }
+                        }
+                    } while (pointers.any { it.pressed })
                 }
             }
     ) {
@@ -306,13 +389,13 @@ fun PitchGraph(
             val endTime = if (isLive) nowMs else freezeTimeMs - scrollOffsetX.toLong()
             val startTime = endTime - timeWindowMs
 
-            val centsRange = 1200f
+            val centsRange = 1200f / zoomY
             val heightScale = height / centsRange
             val timeScale = width / timeWindowMs.toFloat()
 
             val centerY = if (autoFollow) centerYState.floatValue else scrollOffsetY
-            val centsMin = centerY - 600f
-            val centsMax = centerY + 600f
+            val centsMin = centerY - (centsRange / 2f)
+            val centsMax = centerY + (centsRange / 2f)
 
             // ── DRAW GRID LINES & LABELS ──
             val startOctave = floor(centsMin / 1200.0).toInt()
@@ -322,7 +405,7 @@ fun PitchGraph(
             textPaint.textSize = textSizePx
 
             for (oct in startOctave..endOctave) {
-                val octIdx = (oct + 2).coerceIn(0, 4)
+                val octIdx = (oct + 4).coerceIn(0, 8)
                 for (i in 0..11) {
                     val absoluteCents = oct * 1200.0 + (i * 100.0)
 
