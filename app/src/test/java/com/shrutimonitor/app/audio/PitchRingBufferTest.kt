@@ -162,4 +162,34 @@ class PitchRingBufferTest {
         // 100k pushes should complete in under 50ms on any modern JVM
         assertTrue("Duration was ${durationMs}ms", durationMs < 500.0)
     }
+
+    @Test
+    fun testBinarySearchTimeWindow() {
+        val buffer = PitchRingBuffer(10)
+        // Push 15 items with timestamps 100, 200, ..., 1500
+        for (i in 1..15) {
+            buffer.push(i * 100L, 440f, 0.9f)
+        }
+        // Buffer has capacity 10, so items are 600L, 700L, ..., 1500L (indices 0..9)
+        assertEquals(10, buffer.size)
+        assertEquals(600L, buffer.timeAt(0))
+        assertEquals(1500L, buffer.timeAt(9))
+
+        // Search for window 800L..1200L
+        val startIdx = buffer.findFirstIndexAtOrAfter(800L)
+        val endIdx = buffer.findLastIndexAtOrBefore(1200L)
+
+        assertEquals(2, startIdx) // 800L is at index 2
+        assertEquals(6, endIdx)   // 1200L is at index 6
+        assertEquals(800L, buffer.timeAt(startIdx))
+        assertEquals(1200L, buffer.timeAt(endIdx))
+
+        // Search for timestamps before all items
+        assertEquals(0, buffer.findFirstIndexAtOrAfter(100L))
+        assertEquals(-1, buffer.findLastIndexAtOrBefore(500L))
+
+        // Search for timestamps after all items
+        assertEquals(10, buffer.findFirstIndexAtOrAfter(2000L))
+        assertEquals(9, buffer.findLastIndexAtOrBefore(2000L))
+    }
 }

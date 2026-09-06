@@ -139,6 +139,29 @@ fun PitchGraph(
     val onSurfaceVariantColor = MaterialTheme.colorScheme.onSurfaceVariant
     val onSurfaceColor = MaterialTheme.colorScheme.onSurface
 
+    // Precalculate and cache drawing resources outside draw loop
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val glowStroke = remember(density) {
+        with(density) { Stroke(width = 1.8.dp.toPx(), cap = StrokeCap.Round) }
+    }
+    val coreStroke = remember(density) {
+        with(density) { Stroke(width = 0.8.dp.toPx(), cap = StrokeCap.Round) }
+    }
+    val thickGridStroke = remember(density) { with(density) { 1.5.dp.toPx() } }
+    val thinGridStroke = remember(density) { with(density) { 0.8.dp.toPx() } }
+    val saLineStroke = remember(density) { with(density) { 2.dp.toPx() } }
+    val textSizePx = remember(density) { with(density) { 10.dp.toPx() } }
+    val textXPx = remember(density) { with(density) { 8.dp.toPx() } }
+    val textYOffsetPx = remember(density) { with(density) { 3.dp.toPx() } }
+
+    val textPaint = remember {
+        android.graphics.Paint().apply {
+            typeface = android.graphics.Typeface.SANS_SERIF
+            isAntiAlias = true
+        }
+    }
+    val tracePath = remember { Path() }
+
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -175,17 +198,23 @@ fun PitchGraph(
             val endTime = if (isLive) latestTime else latestTime - scrollOffsetX.toLong()
             val startTime = endTime - timeWindowMs
 
+            // Precompute frame-level scale factors
+            val heightScale = height / centsRange
+            val timeScale = width / timeWindowMs.toFloat()
+
             // ── DRAW GRID LINES & LABELS ──
             val startOctave = floor(centsMin / 1200.0).toInt()
             val endOctave = ceil(centsMax / 1200.0).toInt()
 
+            textPaint.color = primaryColor.copy(alpha = 0.5f).toArgb()
+            textPaint.textSize = textSizePx
+
             for (oct in startOctave..endOctave) {
                 for (i in 0..11) {
-                    val swara = Swara.fromIndex(i)
                     val absoluteCents = oct * 1200.0 + (i * 100.0) // Visually equally spaced swaras
 
                     if (absoluteCents in centsMin..centsMax) {
-                        val y = height * (1.0f - (absoluteCents - centsMin).toFloat() / centsRange)
+                        val y = height - (absoluteCents.toFloat() - centsMin) * heightScale
                         
                         // Check Raga filter
                         val isInRaga = activeRagaSwaras == null || activeRagaSwaras.contains(i)
@@ -196,7 +225,7 @@ fun PitchGraph(
                         } else {
                             0.05f
                         }
-                        val strokeW = if (i == 0 && isInRaga) 1.5.dp.toPx() else 0.8.dp.toPx()
+                        val strokeW = if (i == 0 && isInRaga) thickGridStroke else thinGridStroke
 
                         // Grid horizontal line
                         drawLine(
@@ -208,6 +237,7 @@ fun PitchGraph(
 
                         // Draw swara abbreviation and octave designation
                         if (isInRaga) {
+                            val swara = Swara.fromIndex(i)
                             val swaraAbbr = if (nomenclature == Nomenclature.HINDUSTANI) {
                                 swara.hindustaniAbbr
                             } else {
@@ -220,80 +250,85 @@ fun PitchGraph(
                                 else -> swaraAbbr
                             }
 
-                            drawContext.canvas.nativeCanvas.apply {
-                                val paint = android.graphics.Paint().apply {
-                                    color = primaryColor.copy(alpha = 0.5f).toArgb()
-                                    textSize = 10.dp.toPx()
-                                    typeface = android.graphics.Typeface.SANS_SERIF
-                                }
-                                drawText(labelText, 8.dp.toPx(), y - 3.dp.toPx(), paint)
-                            }
+                            drawContext.canvas.nativeCanvas.drawText(
+                                labelText,
+                                textXPx,
+                                y - textYOffsetPx,
+                                textPaint
+                            )
                         }
                     }
                 }
             }
 
             // Draw Central Reference "Sa" Indicator (Mundu / Madhya / Tara)
-            val saY = height * (1.0f - (0f - centsMin) / centsRange)
+            val saY = height - (0f - centsMin) * heightScale
             if (saY in 0f..height) {
                 drawLine(
                     color = primaryColor.copy(alpha = 0.4f),
                     start = Offset(0f, saY),
                     end = Offset(width, saY),
-                    strokeWidth = 2.dp.toPx()
+                    strokeWidth = saLineStroke
                 )
             }
 
             // ── DRAW PITCH TRACE ──
             if (bufferSize > 0 && saFrequency > 0f) {
-                val tracePath = Path()
-                var isPathStarted = false
+                val firstVisible = pitchHistory.findFirstIndexAtOrAfter(startTime)
+                val lastVisible = pitchHistory.findLastIndexAtOrBefore(endTime)
 
-                for (i in 0 until bufferSize) {
-                    val time = pitchHistory.timeAt(i)
-                    if (time < startTime || time > endTime) continue
+                if (firstVisible <= lastVisible && firstVisible < bufferSize && lastVisible >= 0) {
+                    tracePath.reset()
+                    var isPathStarted = false
 
-                    val freq = pitchHistory.freqAt(i)
-                    if (freq <= 0f) {
-                        // Unvoiced gap - breaks the trace
-                        isPathStarted = false
-                        continue
+                    val logSa = kotlin.math.ln(saFrequency.toDouble())
+                    val ln2Inv = 1200.0 / kotlin.math.ln(2.0)
+
+                    for (i in firstVisible..lastVisible) {
+                        val freq = pitchHistory.freqAt(i)
+                        if (freq <= 0f) {
+                            // Unvoiced gap - breaks the trace
+                            isPathStarted = false
+                            continue
+                        }
+
+                        val time = pitchHistory.timeAt(i)
+                        val x = (time - startTime) * timeScale
+                        val centsFromSa = (kotlin.math.ln(freq.toDouble()) - logSa) * ln2Inv
+                        val visualCent = Swara.actualToVisualCents(centsFromSa).toFloat()
+                        val y = height - (visualCent - centsMin) * heightScale
+
+                        if (!isPathStarted) {
+                            tracePath.moveTo(x, y)
+                            isPathStarted = true
+                        } else {
+                            tracePath.lineTo(x, y)
+                        }
                     }
 
-                    val x = width * (time - startTime).toFloat() / timeWindowMs
-                    val centsFromSa = 1200.0 * kotlin.math.log2(freq.toDouble() / saFrequency.toDouble())
-                    val visualCent = Swara.actualToVisualCents(centsFromSa).toFloat()
-                    val y = height * (1.0f - (visualCent - centsMin) / centsRange)
+                    if (isPathStarted) {
+                        val traceBrush = Brush.horizontalGradient(
+                            colors = listOf(secondaryColor.copy(alpha = 0.6f), primaryColor),
+                            startX = 0f,
+                            endX = width
+                        )
 
-                    if (!isPathStarted) {
-                        tracePath.moveTo(x, y)
-                        isPathStarted = true
-                    } else {
-                        tracePath.lineTo(x, y)
+                        // 1. Draw Glow trace (blur effect simulation with thin semi-transparent path)
+                        drawPath(
+                            path = tracePath,
+                            brush = traceBrush,
+                            style = glowStroke,
+                            alpha = 0.2f
+                        )
+
+                        // 2. Draw Sharp core trace
+                        drawPath(
+                            path = tracePath,
+                            brush = traceBrush,
+                            style = coreStroke
+                        )
                     }
                 }
-
-                // Draw path with secondary-to-primary gradient to display past history gracefully
-                val traceBrush = Brush.horizontalGradient(
-                    colors = listOf(secondaryColor.copy(alpha = 0.6f), primaryColor),
-                    startX = 0f,
-                    endX = width
-                )
-
-                // 1. Draw Glow trace (blur effect simulation with thin semi-transparent path)
-                drawPath(
-                    path = tracePath,
-                    brush = traceBrush,
-                    style = Stroke(width = 1.8.dp.toPx(), cap = StrokeCap.Round),
-                    alpha = 0.2f
-                )
-
-                // 2. Draw Sharp core trace
-                drawPath(
-                    path = tracePath,
-                    brush = traceBrush,
-                    style = Stroke(width = 0.8.dp.toPx(), cap = StrokeCap.Round)
-                )
             }
         }
 

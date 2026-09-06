@@ -103,6 +103,54 @@ class PitchRingBuffer(val capacity: Int) {
         }
     }
 
+    /**
+     * Finds the first index i in 0 until size where timeAt(i) >= [targetTimeMs].
+     * If all points have time < targetTimeMs, returns [size].
+     * Runs in O(log N) time via binary search.
+     */
+    @Synchronized
+    fun findFirstIndexAtOrAfter(targetTimeMs: Long): Int {
+        var low = 0
+        var high = count - 1
+        var result = count
+
+        while (low <= high) {
+            val mid = (low + high) ushr 1
+            val t = times[physicalIndex(mid)]
+            if (t >= targetTimeMs) {
+                result = mid
+                high = mid - 1
+            } else {
+                low = mid + 1
+            }
+        }
+        return result
+    }
+
+    /**
+     * Finds the last index i in 0 until size where timeAt(i) <= [targetTimeMs].
+     * If all points have time > targetTimeMs, returns -1.
+     * Runs in O(log N) time via binary search.
+     */
+    @Synchronized
+    fun findLastIndexAtOrBefore(targetTimeMs: Long): Int {
+        var low = 0
+        var high = count - 1
+        var result = -1
+
+        while (low <= high) {
+            val mid = (low + high) ushr 1
+            val t = times[physicalIndex(mid)]
+            if (t <= targetTimeMs) {
+                result = mid
+                low = mid + 1
+            } else {
+                high = mid - 1
+            }
+        }
+        return result
+    }
+
     private fun checkIndex(index: Int) {
         if (index < 0 || index >= count) {
             throw IndexOutOfBoundsException("Index $index out of bounds for size $count (capacity $capacity)")

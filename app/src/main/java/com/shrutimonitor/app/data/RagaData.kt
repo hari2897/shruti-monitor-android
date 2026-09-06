@@ -75,6 +75,22 @@ enum class Swara(
             return 1200.0 * (Math.log(swara.jiRatio) / Math.log(2.0))
         }
 
+        private val JI_CENTS = doubleArrayOf(
+            0.0,
+            111.731,
+            203.910,
+            315.641,
+            386.314,
+            498.045,
+            590.224,
+            701.955,
+            813.686,
+            884.359,
+            1017.596,
+            1088.269,
+            1200.0
+        )
+
         /**
          * Maps actual cents relative to Sa to visual cents where each semitone is exactly 100 cents.
          */
@@ -82,29 +98,13 @@ enum class Swara(
             val octave = kotlin.math.floor(actualCents / 1200.0).toInt()
             val remainder = actualCents - octave * 1200.0
             
-            val jiCents = doubleArrayOf(
-                0.0,
-                111.731,
-                203.910,
-                315.641,
-                386.314,
-                498.045,
-                590.224,
-                701.955,
-                813.686,
-                884.359,
-                1017.596,
-                1088.269,
-                1200.0
-            )
-            
             var k = 0
-            while (k < 12 && remainder >= jiCents[k + 1]) {
+            while (k < 12 && remainder >= JI_CENTS[k + 1]) {
                 k++
             }
             
-            val lowJI = jiCents[k]
-            val highJI = jiCents[k + 1]
+            val lowJI = JI_CENTS[k]
+            val highJI = JI_CENTS[k + 1]
             val lowVisual = k * 100.0
             val highVisual = (k + 1) * 100.0
             
