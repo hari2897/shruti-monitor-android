@@ -16,6 +16,7 @@ import com.shrutimonitor.app.data.Nomenclature
 import com.shrutimonitor.app.data.Raga
 import com.shrutimonitor.app.data.SettingsRepository
 import com.shrutimonitor.app.data.Swara
+import com.shrutimonitor.app.data.TuningPreset
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -52,6 +53,7 @@ data class MonitorUiState(
     val historyVersion: Long = 0L,
     val confidenceThreshold: Float = 0.5f,
     val nomenclature: Nomenclature = Nomenclature.HINDUSTANI,
+    val tuningPreset: TuningPreset = SettingsRepository.DEFAULT_TUNING_PRESET,
     val saFrequency: Float = SettingsRepository.DEFAULT_SA_FREQUENCY,
     val saNoteName: String = SettingsRepository.DEFAULT_SA_NOTE_NAME,
     val saOctave: Int = SettingsRepository.DEFAULT_SA_OCTAVE,
@@ -89,6 +91,7 @@ class MonitorViewModel(application: Application) : AndroidViewModel(application)
     // Tonic reference settings
     private var saFrequency: Float = SettingsRepository.DEFAULT_SA_FREQUENCY
     private var confidenceThreshold: Float = SettingsRepository.DEFAULT_CONFIDENCE_THRESHOLD
+    @Volatile private var currentTuningPreset: TuningPreset = SettingsRepository.DEFAULT_TUNING_PRESET
 
     // Coroutine Jobs
     private var audioCollectionJob: Job? = null
@@ -127,6 +130,12 @@ class MonitorViewModel(application: Application) : AndroidViewModel(application)
             }
         }
         viewModelScope.launch {
+            settingsRepository.tuningPreset.collect { preset ->
+                currentTuningPreset = preset
+                _uiState.update { it.copy(tuningPreset = preset) }
+            }
+        }
+        viewModelScope.launch {
             settingsRepository.autoFollow.collect { autoFollow ->
                 _uiState.update { it.copy(autoFollow = autoFollow) }
             }
@@ -150,6 +159,15 @@ class MonitorViewModel(application: Application) : AndroidViewModel(application)
                         activeRagaName = raga?.name,
                         activeRagaSwaras = raga?.activeSwaras?.map { it.index }?.toSet()
                     )
+                }
+
+                // Smart tuning preset selection if user hasn't explicitly locked it
+                if (raga != null) {
+                    if (!raga.isHindustani) {
+                        settingsRepository.setTuningPresetIfNotOverridden(TuningPreset.PYTHAGOREAN_3LIMIT)
+                    } else {
+                        settingsRepository.setTuningPresetIfNotOverridden(TuningPreset.HARMONIC_5LIMIT)
+                    }
                 }
             }
         }
@@ -223,7 +241,7 @@ class MonitorViewModel(application: Application) : AndroidViewModel(application)
                 )
 
                 if (filteredFreq > 0f) {
-                    val swaraResult = swaraMapper.mapFrequency(saFrequency, filteredFreq)
+                    val swaraResult = swaraMapper.mapFrequency(saFrequency, filteredFreq, currentTuningPreset)
 
                     // Map to display models
                     val info = SwaraInfo(
@@ -343,6 +361,27 @@ class MonitorViewModel(application: Application) : AndroidViewModel(application)
     }
 
     /**
+     * Updates the active tuning preset directly from the monitor screen.
+     */
+    fun updateTuningPreset(preset: TuningPreset) {
+        viewModelScope.launch {
+            settingsRepository.updateTuningPreset(preset, isUserExplicit = true)
+        }
+    }
+
+    /**
+     * Cycles between the 3 tuning presets.
+     */
+    fun cycleTuningPreset() {
+        val nextPreset = when (_uiState.value.tuningPreset) {
+            TuningPreset.HARMONIC_5LIMIT -> TuningPreset.PYTHAGOREAN_3LIMIT
+            TuningPreset.PYTHAGOREAN_3LIMIT -> TuningPreset.EQUAL_TEMPERAMENT
+            TuningPreset.EQUAL_TEMPERAMENT -> TuningPreset.HARMONIC_5LIMIT
+        }
+        updateTuningPreset(nextPreset)
+    }
+
+    /**
      * Updates the tonic Sa configuration directly.
      */
     fun updateSaTonic(frequency: Float, noteName: String, octave: Int) {
@@ -379,7 +418,7 @@ class MonitorViewModel(application: Application) : AndroidViewModel(application)
                 val vibrato = 1.0 + 0.01 * sin(step * 0.5)
                 val simFreq = (saFrequency * baseRatio * vibrato).toFloat()
 
-                val swaraResult = swaraMapper.mapFrequency(saFrequency, simFreq)
+                val swaraResult = swaraMapper.mapFrequency(saFrequency, simFreq, currentTuningPreset)
                 val centsFromSa = 1200.0 * log2(simFreq.toDouble() / saFrequency.toDouble())
 
                 val info = SwaraInfo(

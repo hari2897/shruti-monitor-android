@@ -21,6 +21,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
 import com.shrutimonitor.app.data.Nomenclature
 import com.shrutimonitor.app.data.Swara
+import com.shrutimonitor.app.data.TuningPreset
 
 /**
  * Custom Canvas-based scrolling horizontal pitch slider (tuner scale).
@@ -33,13 +34,14 @@ fun PitchSlider(
     centsFromSa: Float?,
     activeRagaSwaras: Set<Int>?,
     nomenclature: Nomenclature,
+    tuningPreset: TuningPreset = TuningPreset.STANDARD,
     modifier: Modifier = Modifier
 ) {
     // 1. Keep track of current active octave for scrolling hysteresis
     var currentOctave by remember { mutableStateOf(0) }
 
     if (centsFromSa != null) {
-        val cents = Swara.actualToVisualCents(centsFromSa.toDouble())
+        val cents = Swara.actualToVisualCents(centsFromSa.toDouble(), tuningPreset)
         val thresholdLow = currentOctave * 1200.0 - 50.0
         val thresholdHigh = currentOctave * 1200.0 + 1250.0
         
@@ -65,7 +67,7 @@ fun PitchSlider(
 
     // 3. Target thumb position on the continuous scale
     val targetCents = if (centsFromSa != null) {
-        Swara.actualToVisualCents(centsFromSa.toDouble()).toFloat()
+        Swara.actualToVisualCents(centsFromSa.toDouble(), tuningPreset).toFloat()
     } else {
         viewportCenter // Default to center of screen when idle
     }

@@ -4,6 +4,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -156,6 +157,7 @@ fun MonitorScreen(
                 centsFromSa = centsFromSa,
                 activeRagaSwaras = state.activeRagaSwaras,
                 nomenclature = state.nomenclature,
+                tuningPreset = state.tuningPreset,
                 modifier = Modifier.padding(horizontal = 16.dp)
             )
 
@@ -175,6 +177,7 @@ fun MonitorScreen(
                     isLive = state.isLiveMode,
                     autoFollow = state.autoFollow,
                     nomenclature = state.nomenclature,
+                    tuningPreset = state.tuningPreset,
                     onLiveClick = onLiveClick,
                     onScrollStart = onScrollStart,
                     onAutoFollowToggle = onAutoFollowToggle,
@@ -183,36 +186,63 @@ fun MonitorScreen(
 
                 // ── FLOATING OVERLAYS ON TOP OF GRAPH ──
                 if (showBottomDrawer) {
-                    // Floating Tonic Selector Chip (Top Left of Graph)
-                    AssistChip(
-                        onClick = {
-                            HapticManager.tick(view)
-                            showSaBottomSheet = true
-                        },
-                        label = {
-                            Text(
-                                text = "${state.saNoteName}${state.saOctave} (${String.format(java.util.Locale.US, "%.1f", state.saFrequency)} Hz)",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 11.sp
-                            )
-                        },
-                        leadingIcon = {
-                            Icon(
-                                imageVector = Icons.Default.Tune,
-                                contentDescription = "Tonic Reference",
-                                modifier = Modifier.size(14.dp)
-                            )
-                        },
-                        colors = AssistChipDefaults.assistChipColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.85f),
-                            labelColor = MaterialTheme.colorScheme.primary,
-                            leadingIconContentColor = MaterialTheme.colorScheme.primary
-                        ),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)),
+                    // Floating Reference Chips (Top Left of Graph)
+                    Row(
                         modifier = Modifier
                             .align(Alignment.TopStart)
-                            .padding(12.dp)
-                    )
+                            .padding(12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Floating Tonic Selector Chip
+                        AssistChip(
+                            onClick = {
+                                HapticManager.tick(view)
+                                showSaBottomSheet = true
+                            },
+                            label = {
+                                Text(
+                                    text = "${state.saNoteName}${state.saOctave} (${String.format(java.util.Locale.US, "%.1f", state.saFrequency)} Hz)",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 11.sp
+                                )
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.Tune,
+                                    contentDescription = "Tonic Reference",
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            },
+                            colors = AssistChipDefaults.assistChipColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.85f),
+                                labelColor = MaterialTheme.colorScheme.primary,
+                                leadingIconContentColor = MaterialTheme.colorScheme.primary
+                            ),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f))
+                        )
+
+                        // Floating Tuning Preset Cycle Chip
+                        AssistChip(
+                            onClick = {
+                                HapticManager.tick(view)
+                                viewModel.cycleTuningPreset()
+                            },
+                            label = {
+                                Text(
+                                    text = state.tuningPreset.shortName,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 11.sp
+                                )
+                            },
+                            colors = AssistChipDefaults.assistChipColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.85f),
+                                labelColor = MaterialTheme.colorScheme.secondary,
+                                leadingIconContentColor = MaterialTheme.colorScheme.secondary
+                            ),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.4f))
+                        )
+                    }
 
                     // Floating Mic Status Toggle (Top Right of Graph)
                     FilledTonalIconButton(

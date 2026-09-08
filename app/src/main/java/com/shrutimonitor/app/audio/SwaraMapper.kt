@@ -1,11 +1,13 @@
 package com.shrutimonitor.app.audio
 
 import com.shrutimonitor.app.data.Swara
+import com.shrutimonitor.app.data.TuningPreset
 import kotlin.math.floor
 import kotlin.math.log2
 
 /**
- * Maps a frequency in Hz to its nearest Just Intonation swara, given a base Sa frequency.
+ * Maps a frequency in Hz to its nearest swara according to the active [TuningPreset],
+ * given a base Sa frequency.
  */
 class SwaraMapper {
 
@@ -13,13 +15,18 @@ class SwaraMapper {
         const val DEFAULT_SA_FREQUENCY = 261.63f // Middle C (C4)
 
         /**
-         * Calculates the ideal Just Intonation frequency of a swara in a given saptak,
-         * relative to the base Sa frequency.
+         * Calculates the ideal frequency of a swara in a given saptak,
+         * relative to the base Sa frequency and active [tuningPreset].
          */
-        fun idealFrequency(swara: Swara, saptak: Saptak, saFrequency: Float): Float {
+        fun idealFrequency(
+            swara: Swara,
+            saptak: Saptak,
+            saFrequency: Float,
+            tuningPreset: TuningPreset = TuningPreset.STANDARD
+        ): Float {
             val octaveOffset = saptak.ordinal - Saptak.MADHYA.ordinal
             val octaveMultiplier = Math.pow(2.0, octaveOffset.toDouble())
-            return (saFrequency.toDouble() * swara.jiRatio * octaveMultiplier).toFloat()
+            return (saFrequency.toDouble() * tuningPreset.ratioForSwara(swara) * octaveMultiplier).toFloat()
         }
     }
 
@@ -28,9 +35,14 @@ class SwaraMapper {
      *
      * @param saFrequency The base tonic frequency (Sa) in Hz.
      * @param detectedFrequency The frequency to map in Hz.
+     * @param tuningPreset The active [TuningPreset] defining swara ratios and cents.
      * @return The [SwaraResult] containing the mapped swara, cent deviation, saptak, etc.
      */
-    fun mapFrequency(saFrequency: Float, detectedFrequency: Float): SwaraResult {
+    fun mapFrequency(
+        saFrequency: Float,
+        detectedFrequency: Float,
+        tuningPreset: TuningPreset = TuningPreset.STANDARD
+    ): SwaraResult {
         val timestamp = System.currentTimeMillis()
         
         if (detectedFrequency <= 0.0f || saFrequency <= 0.0f) {
@@ -60,7 +72,7 @@ class SwaraMapper {
         // Test the swaras in the base octave and its neighboring octaves
         for (oct in (baseOctave - 1)..(baseOctave + 1)) {
             for (swara in Swara.entries) {
-                val swaraCents = Swara.justIntonationCents(swara)
+                val swaraCents = tuningPreset.centsForSwara(swara)
                 val idealCents = oct * 1200.0 + swaraCents
                 val diff = Math.abs(centsFromSa - idealCents)
                 if (diff < minDiff) {
@@ -84,7 +96,7 @@ class SwaraMapper {
 
         // Ideal frequency: Sa * swaraRatio * 2^octave
         val octaveMultiplier = Math.pow(2.0, bestOctave.toDouble())
-        val idealFrequency = (saFrequency.toDouble() * bestSwara.jiRatio * octaveMultiplier).toFloat()
+        val idealFrequency = (saFrequency.toDouble() * tuningPreset.ratioForSwara(bestSwara) * octaveMultiplier).toFloat()
 
         return SwaraResult(
             swara = bestSwara,

@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.shrutimonitor.app.data.Nomenclature
 import com.shrutimonitor.app.data.Swara
+import com.shrutimonitor.app.data.TuningPreset
 import com.shrutimonitor.app.util.HapticManager
 import java.util.Locale
 
@@ -59,6 +60,7 @@ fun ShrutiPettiView(
     playingSwaras: Set<Int>,
     saFrequency: Float,
     nomenclature: Nomenclature,
+    tuningPreset: TuningPreset = TuningPreset.STANDARD,
     onSwaraToggle: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -96,8 +98,8 @@ fun ShrutiPettiView(
                     swara.carnaticAbbr
                 }
 
-                // Calculate note frequency in Hz
-                val noteHz = saFrequency * swara.jiRatio
+                // Calculate note frequency in Hz based on selected tuning preset
+                val noteHz = saFrequency * tuningPreset.ratioForSwara(swara)
 
                 // Continuous pulse scaling when playing
                 val infiniteTransition = rememberInfiniteTransition(label = "pettiPulse")

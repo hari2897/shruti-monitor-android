@@ -2,4 +2,6 @@
 <paths>
     <!-- Map the app cache 'recordings/' directory for export sharing -->
     <cache-path name="recordings" path="recordings/" />
+    <!-- Map the app cache 'updates/' directory for package installer -->
+    <cache-path name="updates" path="updates/" />
 </paths>

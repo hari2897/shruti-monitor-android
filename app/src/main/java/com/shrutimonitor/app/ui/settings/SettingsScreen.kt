@@ -15,24 +15,33 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.SettingsBackupRestore
+import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -46,6 +55,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.shrutimonitor.app.data.AppTheme
 import com.shrutimonitor.app.data.Nomenclature
+import com.shrutimonitor.app.data.TuningPreset
+import com.shrutimonitor.app.data.update.UpdateCheckStatus
+import com.shrutimonitor.app.ui.update.UpdateDialog
 import com.shrutimonitor.app.util.HapticManager
 import java.util.Locale
 
@@ -59,6 +71,9 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = viewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val updateCheckStatus by viewModel.updateCheckStatus.collectAsStateWithLifecycle()
+    val downloadStatus by viewModel.downloadStatus.collectAsStateWithLifecycle()
+    val showUpdateDialog by viewModel.showUpdateDialog.collectAsStateWithLifecycle()
     val scrollState = rememberScrollState()
     val view = LocalView.current
 
@@ -124,6 +139,83 @@ fun SettingsScreen(
                                 fontWeight = FontWeight.Bold
                             )
                         }
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // 3. Tuning Preset Card (Shruti System)
+        Card(
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "Tuning Preset (Shruti System)",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = "Mathematical ratio system for swarasthanas and grid lines",
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+
+                SingleChoiceSegmentedButtonRow(
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    TuningPreset.entries.forEachIndexed { index, preset ->
+                        SegmentedButton(
+                            selected = state.tuningPreset == preset,
+                            onClick = {
+                                HapticManager.tick(view)
+                                viewModel.updateTuningPreset(preset)
+                            },
+                            shape = SegmentedButtonDefaults.itemShape(index = index, count = TuningPreset.entries.size)
+                        ) {
+                            Text(
+                                text = preset.shortName,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Detail explanation box
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.5f),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(10.dp)) {
+                        Text(
+                            text = state.tuningPreset.displayName,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = when (state.tuningPreset) {
+                                TuningPreset.HARMONIC_5LIMIT ->
+                                    "Pure harmonic thirds & fifths. Consonant with drone; common in Hindustani & vocal riyaz (G2 = 6/5, 315.6¢)."
+                                TuningPreset.PYTHAGOREAN_3LIMIT ->
+                                    "Derived via cycle of 4ths & 5ths. Aligns with standard Carnatic Veena swarasthana charts & classical treatises (G2 = 32/27, 294.1¢)."
+                                TuningPreset.EQUAL_TEMPERAMENT ->
+                                    "Standard chromatic reference with equal 100¢ semitones (G2 = 300¢). Ideal for Western tempered instruments."
+                            },
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            lineHeight = 15.sp
+                        )
                     }
                 }
             }
@@ -350,12 +442,149 @@ fun SettingsScreen(
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "Scale Tuning: Just Intonation (5-limit JI Shrutis)\nEngine Latency: 46 ms (2048 samples at 44.1kHz)\nVersion: 1.0.0 (Native Android)",
+                    text = "Scale Tuning: Just Intonation (Harmonic 5-Limit & Pythagorean 3-Limit presets)\nEngine Latency: 46 ms (2048 samples at 44.1kHz)\nVersion: ${viewModel.currentVersionName} (Native Android)",
                     fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     lineHeight = 16.sp,
                     fontWeight = FontWeight.Medium
                 )
+
+                Spacer(modifier = Modifier.height(14.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // App Updates Row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Software Updates",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        when (val status = updateCheckStatus) {
+                            is UpdateCheckStatus.Idle -> {
+                                Text(
+                                    text = "Tap to check GitHub for new releases",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            is UpdateCheckStatus.Checking -> {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(12.dp),
+                                        strokeWidth = 2.dp,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "Checking for updates...",
+                                        fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+                            is UpdateCheckStatus.UpToDate -> {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.CheckCircle,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = "Up to date (v${status.currentVersionName})",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+                            is UpdateCheckStatus.UpdateAvailable -> {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.SystemUpdate,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.tertiary,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = "Update v${status.updateInfo.latestVersionName} available!",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.tertiary
+                                    )
+                                }
+                            }
+                            is UpdateCheckStatus.Error -> {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.ErrorOutline,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.error,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = "Check failed: ${status.message.take(30)}",
+                                        fontSize = 10.sp,
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    when (updateCheckStatus) {
+                        is UpdateCheckStatus.UpdateAvailable -> {
+                            Button(
+                                onClick = {
+                                    HapticManager.tick(view)
+                                    viewModel.checkForUpdates()
+                                },
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)
+                            ) {
+                                Text("Update", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                        is UpdateCheckStatus.Checking -> {
+                            OutlinedButton(
+                                onClick = {},
+                                enabled = false,
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Text("Checking...", fontSize = 12.sp)
+                            }
+                        }
+                        else -> {
+                            OutlinedButton(
+                                onClick = {
+                                    HapticManager.tick(view)
+                                    viewModel.checkForUpdates()
+                                },
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Refresh,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Check", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+                    }
+                }
             }
         }
 
@@ -384,5 +613,19 @@ fun SettingsScreen(
             Text(text = "Restore Factory Defaults", fontSize = 13.sp, fontWeight = FontWeight.Bold)
         }
         Spacer(modifier = Modifier.height(80.dp))
+    }
+
+    // Render Update Dialog if triggered
+    if (showUpdateDialog && updateCheckStatus is UpdateCheckStatus.UpdateAvailable) {
+        val updateInfo = (updateCheckStatus as UpdateCheckStatus.UpdateAvailable).updateInfo
+        UpdateDialog(
+            updateInfo = updateInfo,
+            downloadStatus = downloadStatus,
+            onDownloadAndInstall = { viewModel.downloadAndInstallUpdate(updateInfo) },
+            onInstallNow = { file -> viewModel.installDownloadedApk(file) },
+            onOpenInBrowser = { url -> viewModel.openWebUrl(url) },
+            onDismiss = { viewModel.dismissUpdateDialog() },
+            onSkipVersion = { viewModel.skipUpdate(updateInfo.latestVersionName) }
+        )
     }
 }

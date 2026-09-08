@@ -5,6 +5,7 @@ import android.media.AudioFormat
 import android.media.AudioTrack
 import android.util.Log
 import com.shrutimonitor.app.data.Swara
+import com.shrutimonitor.app.data.TuningPreset
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.PI
@@ -22,6 +23,7 @@ class KeyboardPlayer(
 ) {
 
     @Volatile private var saFrequency: Float = SwaraMapper.DEFAULT_SA_FREQUENCY
+    @Volatile private var tuningPreset: TuningPreset = TuningPreset.STANDARD
 
     private val _running = AtomicBoolean(false)
     private var audioTrack: AudioTrack? = null
@@ -183,6 +185,13 @@ class KeyboardPlayer(
         saFrequency = freq.coerceIn(50f, 1000f)
     }
 
+    /**
+     * Sets the active tuning preset.
+     */
+    fun setTuningPreset(preset: TuningPreset) {
+        tuningPreset = preset
+    }
+
     // ════════════════════════════════════════════════════════════════════
     //  Frequency mapping
     // ════════════════════════════════════════════════════════════════════
@@ -197,7 +206,7 @@ class KeyboardPlayer(
         val sa = saFrequency.toDouble()
 
         val octaveMultiplier = Math.pow(2.0, (octave - 1).toDouble())
-        return (sa * swara.jiRatio * octaveMultiplier).toFloat()
+        return (sa * tuningPreset.ratioForSwara(swara) * octaveMultiplier).toFloat()
     }
 
     // ════════════════════════════════════════════════════════════════════

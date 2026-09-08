@@ -61,23 +61,23 @@ class PitchDiscontinuityTest {
     fun testFrameSpikesScaleThreshold() {
         // Actual telemetry shows interval spikes up to 44-58ms
         val maxDelta45 = maxPlausibleDeltaCents(45L)
-        assertEquals(270f, maxDelta45, 1e-3f)
+        assertEquals(270.0, maxDelta45, 1e-3)
 
         val maxDelta58 = maxPlausibleDeltaCents(58L)
-        assertEquals(348f, maxDelta58, 1e-3f)
+        assertEquals(348.0, maxDelta58, 1e-3)
     }
 
     @Test
     fun testBridgeGapThreshold() {
         // Bridged unvoiced consonant gaps (up to 80ms)
         val maxDelta60 = maxPlausibleDeltaCents(60L)
-        assertEquals(360f, maxDelta60, 1e-3f)
+        assertEquals(360.0, maxDelta60, 1e-3)
 
         val maxDelta80 = maxPlausibleDeltaCents(80L)
-        assertEquals(480f, maxDelta80, 1e-3f)
+        assertEquals(480.0, maxDelta80, 1e-3)
 
         // Capped at MAX_DISCONTINUITY_CENTS (500 cents)
         val maxDelta120 = maxPlausibleDeltaCents(120L)
-        assertEquals(MAX_DISCONTINUITY_CENTS, maxDelta120, 1e-3f)
+        assertEquals(MAX_DISCONTINUITY_CENTS, maxDelta120, 1e-3)
     }
 }

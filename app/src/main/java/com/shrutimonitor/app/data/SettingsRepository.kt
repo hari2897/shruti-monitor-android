@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
@@ -60,6 +61,10 @@ class SettingsRepository(private val context: Context) {
         val IN_TUNE_TOLERANCE = floatPreferencesKey("in_tune_tolerance")
         val TANPURA_FINE_TUNING = floatPreferencesKey("tanpura_fine_tuning")
         val TANPURA_432HZ = booleanPreferencesKey("tanpura_432hz")
+        val TUNING_PRESET = stringPreferencesKey("tuning_preset")
+        val USER_EXPLICIT_TUNING = booleanPreferencesKey("user_explicit_tuning")
+        val LAST_UPDATE_CHECK_TIME = longPreferencesKey("last_update_check_time")
+        val IGNORED_UPDATE_VERSION = stringPreferencesKey("ignored_update_version")
     }
 
     // ── Default Values ────────────────────────────────────────────────
@@ -69,6 +74,8 @@ class SettingsRepository(private val context: Context) {
         const val DEFAULT_SA_NOTE_NAME: String = "C"
         const val DEFAULT_SA_OCTAVE: Int = 4
         val DEFAULT_NOMENCLATURE: Nomenclature = Nomenclature.HINDUSTANI
+        val DEFAULT_TUNING_PRESET: TuningPreset = TuningPreset.HARMONIC_5LIMIT
+        const val DEFAULT_USER_EXPLICIT_TUNING: Boolean = false
         const val DEFAULT_CONFIDENCE_THRESHOLD: Float = 0.5f
         const val DEFAULT_AUTO_FOLLOW: Boolean = true
         const val DEFAULT_MIC_SENSITIVITY: Float = 0.5f
@@ -78,6 +85,8 @@ class SettingsRepository(private val context: Context) {
         const val DEFAULT_IN_TUNE_TOLERANCE: Float = 10.0f
         const val DEFAULT_TANPURA_FINE_TUNING: Float = 0.0f
         const val DEFAULT_TANPURA_432HZ: Boolean = false
+        const val DEFAULT_LAST_UPDATE_CHECK_TIME: Long = 0L
+        const val DEFAULT_IGNORED_UPDATE_VERSION: String = ""
     }
 
     // ── Flows (read) ──────────────────────────────────────────────────
@@ -181,6 +190,35 @@ class SettingsRepository(private val context: Context) {
      */
     val tanpura432Hz: Flow<Boolean> = context.dataStore.data.map { prefs ->
         prefs[Keys.TANPURA_432HZ] ?: DEFAULT_TANPURA_432HZ
+    }
+
+    /**
+     * Active tuning system / Shruti preset (Harmonic 5-Limit JI, Pythagorean 3-Limit JI, or 12-EDO).
+     */
+    val tuningPreset: Flow<TuningPreset> = context.dataStore.data.map { prefs ->
+        val value = prefs[Keys.TUNING_PRESET]
+        TuningPreset.fromId(value)
+    }
+
+    /**
+     * Whether the user has explicitly selected a tuning preset (prevents automatic raga overrides).
+     */
+    val userExplicitTuning: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[Keys.USER_EXPLICIT_TUNING] ?: DEFAULT_USER_EXPLICIT_TUNING
+    }
+
+    /**
+     * Timestamp in milliseconds of the last successful update check.
+     */
+    val lastUpdateCheckTime: Flow<Long> = context.dataStore.data.map { prefs ->
+        prefs[Keys.LAST_UPDATE_CHECK_TIME] ?: DEFAULT_LAST_UPDATE_CHECK_TIME
+    }
+
+    /**
+     * Version name of an update the user opted to ignore/skip.
+     */
+    val ignoredUpdateVersion: Flow<String> = context.dataStore.data.map { prefs ->
+        prefs[Keys.IGNORED_UPDATE_VERSION] ?: DEFAULT_IGNORED_UPDATE_VERSION
     }
 
     // ── Update Functions (write) ──────────────────────────────────────
@@ -331,6 +369,52 @@ class SettingsRepository(private val context: Context) {
     }
 
     /**
+     * Updates the tuning preset.
+     * @param preset The chosen [TuningPreset].
+     * @param isUserExplicit If true, marks that the user explicitly chose this preset,
+     *                       preventing automatic changes when selecting ragas.
+     */
+    suspend fun updateTuningPreset(preset: TuningPreset, isUserExplicit: Boolean = true) {
+        context.dataStore.edit { prefs ->
+            prefs[Keys.TUNING_PRESET] = preset.id
+            if (isUserExplicit) {
+                prefs[Keys.USER_EXPLICIT_TUNING] = true
+            }
+        }
+    }
+
+    /**
+     * Updates tuning preset automatically for a raga system (e.g. Carnatic -> Pythagorean 3-Limit),
+     * only if the user has not explicitly locked in a preferred tuning.
+     */
+    suspend fun setTuningPresetIfNotOverridden(preset: TuningPreset) {
+        context.dataStore.edit { prefs ->
+            val explicitlySet = prefs[Keys.USER_EXPLICIT_TUNING] ?: DEFAULT_USER_EXPLICIT_TUNING
+            if (!explicitlySet) {
+                prefs[Keys.TUNING_PRESET] = preset.id
+            }
+        }
+    }
+
+    /**
+     * Updates the timestamp of the last successful update check.
+     */
+    suspend fun updateLastUpdateCheckTime(timestampMs: Long) {
+        context.dataStore.edit { prefs ->
+            prefs[Keys.LAST_UPDATE_CHECK_TIME] = timestampMs
+        }
+    }
+
+    /**
+     * Updates the version string that the user chose to ignore.
+     */
+    suspend fun updateIgnoredUpdateVersion(version: String) {
+        context.dataStore.edit { prefs ->
+            prefs[Keys.IGNORED_UPDATE_VERSION] = version
+        }
+    }
+
+    /**
      * Resets all settings to their default values.
      */
     suspend fun resetToDefaults() {
@@ -339,6 +423,8 @@ class SettingsRepository(private val context: Context) {
             prefs[Keys.SA_NOTE_NAME] = DEFAULT_SA_NOTE_NAME
             prefs[Keys.SA_OCTAVE] = DEFAULT_SA_OCTAVE
             prefs[Keys.NOMENCLATURE] = DEFAULT_NOMENCLATURE.name
+            prefs[Keys.TUNING_PRESET] = DEFAULT_TUNING_PRESET.id
+            prefs[Keys.USER_EXPLICIT_TUNING] = DEFAULT_USER_EXPLICIT_TUNING
             prefs[Keys.CONFIDENCE_THRESHOLD] = DEFAULT_CONFIDENCE_THRESHOLD
             prefs[Keys.AUTO_FOLLOW] = DEFAULT_AUTO_FOLLOW
             prefs[Keys.MIC_SENSITIVITY] = DEFAULT_MIC_SENSITIVITY
@@ -348,6 +434,8 @@ class SettingsRepository(private val context: Context) {
             prefs[Keys.IN_TUNE_TOLERANCE] = DEFAULT_IN_TUNE_TOLERANCE
             prefs[Keys.TANPURA_FINE_TUNING] = DEFAULT_TANPURA_FINE_TUNING
             prefs[Keys.TANPURA_432HZ] = DEFAULT_TANPURA_432HZ
+            prefs[Keys.LAST_UPDATE_CHECK_TIME] = DEFAULT_LAST_UPDATE_CHECK_TIME
+            prefs[Keys.IGNORED_UPDATE_VERSION] = DEFAULT_IGNORED_UPDATE_VERSION
         }
     }
 }

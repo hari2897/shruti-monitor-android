@@ -30,15 +30,15 @@ enum class Swara(
     SA(0, "Sa", "S", "Shadjam", "S", 1.0),
     KOMAL_RE(1, "Komal Re", "r", "Shuddha Rishabham", "R1", 16.0 / 15.0),
     SHUDDH_RE(2, "Shuddh Re", "R", "Chatusruti Rishabham", "R2", 9.0 / 8.0),
-    KOMAL_GA(3, "Komal Ga", "g", "Sadharana Gandharam", "G1", 6.0 / 5.0),
-    SHUDDH_GA(4, "Shuddh Ga", "G", "Antara Gandharam", "G2", 5.0 / 4.0),
+    KOMAL_GA(3, "Komal Ga", "g", "Sadharana Gandharam", "G2", 6.0 / 5.0),
+    SHUDDH_GA(4, "Shuddh Ga", "G", "Antara Gandharam", "G3", 5.0 / 4.0),
     SHUDDH_MA(5, "Shuddh Ma", "m", "Shuddha Madhyamam", "M1", 4.0 / 3.0),
     TIVRA_MA(6, "Tivra Ma", "M", "Prati Madhyamam", "M2", 45.0 / 32.0),
     PA(7, "Pa", "P", "Panchamam", "P", 3.0 / 2.0),
     KOMAL_DHA(8, "Komal Dha", "d", "Shuddha Dhaivatham", "D1", 8.0 / 5.0),
     SHUDDH_DHA(9, "Shuddh Dha", "D", "Chatusruti Dhaivatham", "D2", 5.0 / 3.0),
-    KOMAL_NI(10, "Komal Ni", "n", "Kaisiki Nishadham", "N1", 9.0 / 5.0),
-    SHUDDH_NI(11, "Shuddh Ni", "N", "Kakali Nishadham", "N2", 15.0 / 8.0);
+    KOMAL_NI(10, "Komal Ni", "n", "Kaisiki Nishadham", "N2", 9.0 / 5.0),
+    SHUDDH_NI(11, "Shuddh Ni", "N", "Kakali Nishadham", "N3", 15.0 / 8.0);
 
     companion object {
         /**
@@ -75,43 +75,12 @@ enum class Swara(
             return 1200.0 * (Math.log(swara.jiRatio) / Math.log(2.0))
         }
 
-        private val JI_CENTS = doubleArrayOf(
-            0.0,
-            111.731,
-            203.910,
-            315.641,
-            386.314,
-            498.045,
-            590.224,
-            701.955,
-            813.686,
-            884.359,
-            1017.596,
-            1088.269,
-            1200.0
-        )
-
         /**
          * Maps actual cents relative to Sa to visual cents where each semitone is exactly 100 cents.
+         * Uses the specified [tuningPreset] (default: [TuningPreset.STANDARD]).
          */
-        fun actualToVisualCents(actualCents: Double): Double {
-            val octave = kotlin.math.floor(actualCents / 1200.0).toInt()
-            val remainder = actualCents - octave * 1200.0
-            
-            var k = 0
-            while (k < 12 && remainder >= JI_CENTS[k + 1]) {
-                k++
-            }
-            
-            val lowJI = JI_CENTS[k]
-            val highJI = JI_CENTS[k + 1]
-            val lowVisual = k * 100.0
-            val highVisual = (k + 1) * 100.0
-            
-            val fraction = (remainder - lowJI) / (highJI - lowJI)
-            val visualRemainder = lowVisual + fraction * (highVisual - lowVisual)
-            
-            return octave * 1200.0 + visualRemainder
+        fun actualToVisualCents(actualCents: Double, tuningPreset: TuningPreset = TuningPreset.STANDARD): Double {
+            return tuningPreset.actualToVisualCents(actualCents)
         }
     }
 }

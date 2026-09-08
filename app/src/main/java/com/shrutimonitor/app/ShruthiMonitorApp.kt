@@ -44,6 +44,9 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -57,6 +60,11 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.shrutimonitor.app.BuildConfig
+import com.shrutimonitor.app.data.update.AppUpdateManager
+import com.shrutimonitor.app.data.update.DownloadStatus
+import com.shrutimonitor.app.data.update.UpdateCheckStatus
+import com.shrutimonitor.app.data.update.UpdateInfo
 import com.shrutimonitor.app.navigation.Screen
 import com.shrutimonitor.app.ui.PermissionScreen
 import com.shrutimonitor.app.ui.SplashScreen
@@ -68,6 +76,9 @@ import com.shrutimonitor.app.ui.theme.PrimarySaffron
 import com.shrutimonitor.app.ui.theme.SecondaryViolet
 import com.shrutimonitor.app.ui.theme.TextPrimary
 import com.shrutimonitor.app.ui.theme.TextSecondary
+import com.shrutimonitor.app.ui.update.UpdateDialog
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 
 /**
  * Root Composable orchestrating app shell, scaffold layout, top/bottom navigation, and routing.
@@ -95,6 +106,39 @@ fun ShruthiMonitorApp() {
 
     val showBars = currentRoute in mainTabs.map { it.route } && !(currentRoute == Screen.Monitor.route && !showControlsState)
     val showTopBar = showBars && currentRoute != Screen.Monitor.route
+
+    // In-App Update Engine
+    val scope = rememberCoroutineScope()
+    val appUpdateManager = remember { AppUpdateManager(context) }
+    var autoUpdateInfo by remember { mutableStateOf<UpdateInfo?>(null) }
+    var autoDownloadStatus by remember { mutableStateOf<DownloadStatus>(DownloadStatus.NotStarted) }
+    var showAutoDialog by remember { mutableStateOf(false) }
+
+    // Check for updates automatically in background once every 24 hours
+    LaunchedEffect(Unit) {
+        val lastCheckTime = settingsRepository.lastUpdateCheckTime.first()
+        val ignoredVersion = settingsRepository.ignoredUpdateVersion.first()
+        val now = System.currentTimeMillis()
+        val oneDayMs = 24 * 60 * 60 * 1000L
+
+        if (now - lastCheckTime > oneDayMs) {
+            val currentVersion = try {
+                BuildConfig.VERSION_NAME
+            } catch (e: Throwable) {
+                context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "1.1.1"
+            }
+
+            val result = appUpdateManager.checkForUpdate(currentVersion)
+            settingsRepository.updateLastUpdateCheckTime(now)
+
+            if (result is UpdateCheckStatus.UpdateAvailable) {
+                if (result.updateInfo.latestVersionName != ignoredVersion) {
+                    autoUpdateInfo = result.updateInfo
+                    showAutoDialog = true
+                }
+            }
+        }
+    }
 
     // Launcher to request microphone permission
     val launcher = rememberLauncherForActivityResult(
@@ -307,5 +351,49 @@ fun ShruthiMonitorApp() {
                 SettingsScreen()
             }
         }
+    }
+
+    // Auto-update notification dialog
+    if (showAutoDialog && autoUpdateInfo != null) {
+        val updateInfo = autoUpdateInfo!!
+        UpdateDialog(
+            updateInfo = updateInfo,
+            downloadStatus = autoDownloadStatus,
+            onDownloadAndInstall = {
+                scope.launch {
+                    appUpdateManager.downloadApk(updateInfo).collect { status ->
+                        autoDownloadStatus = status
+                        if (status is DownloadStatus.ReadyToInstall) {
+                            if (!appUpdateManager.canRequestPackageInstalls()) {
+                                appUpdateManager.requestInstallPermission()
+                            } else {
+                                appUpdateManager.installApk(status.apkFile)
+                            }
+                        }
+                    }
+                }
+            },
+            onInstallNow = { file ->
+                if (!appUpdateManager.canRequestPackageInstalls()) {
+                    appUpdateManager.requestInstallPermission()
+                } else {
+                    appUpdateManager.installApk(file)
+                }
+            },
+            onOpenInBrowser = { url ->
+                appUpdateManager.openWebUrl(url)
+            },
+            onDismiss = {
+                showAutoDialog = false
+                autoDownloadStatus = DownloadStatus.NotStarted
+            },
+            onSkipVersion = {
+                scope.launch {
+                    settingsRepository.updateIgnoredUpdateVersion(updateInfo.latestVersionName)
+                    showAutoDialog = false
+                    autoDownloadStatus = DownloadStatus.NotStarted
+                }
+            }
+        )
     }
 }

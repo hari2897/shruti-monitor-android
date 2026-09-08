@@ -5,6 +5,7 @@ import android.media.AudioFormat
 import android.media.AudioTrack
 import android.util.Log
 import com.shrutimonitor.app.data.Swara
+import com.shrutimonitor.app.data.TuningPreset
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.PI
@@ -29,6 +30,7 @@ class ShrutiPettiPlayer(
 ) {
 
     @Volatile var saFrequency: Float = SwaraMapper.DEFAULT_SA_FREQUENCY
+    @Volatile var tuningPreset: TuningPreset = TuningPreset.STANDARD
 
     private val _running = AtomicBoolean(false)
     private var audioTrack: AudioTrack? = null
@@ -132,7 +134,7 @@ class ShrutiPettiPlayer(
         }
 
         val swara = Swara.entries.getOrNull(swaraIndex) ?: return
-        val freq = SwaraMapper.idealFrequency(swara, saptak, saFrequency)
+        val freq = SwaraMapper.idealFrequency(swara, saptak, saFrequency, tuningPreset)
         val key = voiceKey(swaraIndex, saptak)
 
         // If already playing this swara, don't restart

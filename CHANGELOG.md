@@ -4,6 +4,46 @@ All notable changes to the **Shruti Monitor** application are documented in this
 
 ---
 
+## [Version 1.2.0] - 2026-09-08
+
+### 🌟 Release Summary
+Version 1.2.0 introduces multi-system mathematical tuning presets (Harmonic 5-Limit Just Intonation, Pythagorean 3-Limit Just Intonation, and 12-Tone Equal Temperament), decoupling nomenclature from the tuning engine with intelligent tradition defaults. It also adds a native in-app software update checker and one-click package installer.
+
+---
+
+### 🚀 Key Improvements & New Features
+
+#### 1. 🎼 Multi-System Mathematical Tuning Engine
+- **Harmonic (5-Limit JI)**:
+  - Uses pure harmonic thirds and fifths ($G_2 = 6/5$, $D_1 = 8/5$, $N_2 = 9/5$).
+  - Produces $G_2$ at $315.64\text{¢}$, eliminating acoustic beating against the Tanpura drone; ideal for Hindustani music, bansuri, and vocal riyaz.
+- **Pythagorean (3-Limit JI)**:
+  - Derived via the cycle of continuous fourths and fifths ($G_2 = 32/27$, $D_1 = 128/81$, $N_2 = 16/9$).
+  - Produces $G_2$ at $294.13\text{¢}$, exactly $21.51\text{¢}$ (Pramāna Shruti / Syntonic Comma) flatter than 5-limit intervals.
+  - Aligns with traditional Carnatic Veena swarasthana charts and classical treatises (*Venkatamakhin's Chaturdandi Prakasika*, Sambamoorthy).
+- **12-Tone Equal Temperament (12-EDO / Western)**:
+  - Standard chromatic reference with equal 100¢ semitones ($G_2 = 300.0\text{¢}$) for practicing alongside keyboards, pianos, and Western tempered instruments.
+- **Real-Time Visual Grid Remapping**:
+  - Horizontal pitch canvas gridlines dynamically interpolate and align with the active tuning system in real time.
+- **Floating Quick-Switch Chip**:
+  - Direct one-tap cycling chip on the Pitch Monitor screen allows musicians to toggle tuning presets instantly during performance or riyaz.
+
+#### 2. 🎛️ Decoupled Nomenclature & Intelligent Defaults
+- **Separate Nomenclature & Tuning Controls**:
+  - The swara naming convention (`Hindustani [Sa Re Ga]` vs. `Carnatic [Sa Ri Ga]`) is completely decoupled from the acoustic tuning engine.
+- **Smart Tradition Defaults**:
+  - Selecting Carnatic nomenclature defaults to **Pythagorean (3-Limit JI)**.
+  - Selecting Hindustani nomenclature defaults to **Harmonic (5-Limit JI)**.
+  - If a musician explicitly chooses a tuning preset, their preference is locked and preserved across tradition and raga switches.
+
+#### 3. 🔄 Native In-App Software Updates & One-Click Installer
+- **Background Checks**: Automatically checks GitHub Releases on launch (throttled to once every 24 hours).
+- **Update Dialog**: Presents release notes / changelog, download size, and real-time streaming download progress bar.
+- **One-Click Installation**: Downloads to application cache and triggers native Android package installation via secure `FileProvider`.
+- **Manual Check**: Added a dedicated "Software Updates" row with status indicator in Settings -> About.
+
+---
+
 ## [Version 1.1.1] - 2026-09-08
 
 ### 🌟 Release Summary

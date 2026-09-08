@@ -11,6 +11,7 @@ import com.shrutimonitor.app.audio.TanpuraSynthesizer
 import com.shrutimonitor.app.data.ActiveRagaManager
 import com.shrutimonitor.app.data.Nomenclature
 import com.shrutimonitor.app.data.SettingsRepository
+import com.shrutimonitor.app.data.TuningPreset
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -37,6 +38,7 @@ data class PlayUiState(
     val saNoteName: String = "C",
     val saOctave: Int = 4,
     val nomenclature: Nomenclature = Nomenclature.HINDUSTANI,
+    val tuningPreset: TuningPreset = TuningPreset.STANDARD,
     val tanpuraPlaying: Boolean = false,
     val tanpuraVolume: Float = 0.5f,
     val tanpuraSpeed: Float = 1.0f,
@@ -127,6 +129,13 @@ class PlayViewModel(application: Application) : AndroidViewModel(application) {
             settingsRepository.tanpura432Hz.collect { enabled ->
                 _uiState.update { it.copy(tanpura432Hz = enabled) }
                 tanpuraSynthesizer.is432HzMode = enabled
+            }
+        }
+        viewModelScope.launch {
+            settingsRepository.tuningPreset.collect { preset ->
+                _uiState.update { it.copy(tuningPreset = preset) }
+                shrutiPettiPlayer.tuningPreset = preset
+                keyboardPlayer.setTuningPreset(preset)
             }
         }
 

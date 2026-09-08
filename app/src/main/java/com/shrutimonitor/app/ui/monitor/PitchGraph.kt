@@ -61,6 +61,7 @@ import com.shrutimonitor.app.audio.VisibleWindowScratch
 import com.shrutimonitor.app.audio.PitchPipelineTelemetry
 import com.shrutimonitor.app.data.Nomenclature
 import com.shrutimonitor.app.data.Swara
+import com.shrutimonitor.app.data.TuningPreset
 import com.shrutimonitor.app.ui.theme.OutOfTuneCoral
 import com.shrutimonitor.app.ui.theme.PrimarySaffron
 import com.shrutimonitor.app.ui.theme.TextSecondary
@@ -73,20 +74,20 @@ import kotlin.math.roundToInt
  *
  * Physiological pitch velocity limits:
  * - Normal scale-step glides: up to ~2,000 cents/sec.
- * - Fast gamakas / portamento: up to ~6,000 cents/sec.
- * - Base floor: 250 cents (~whole tone + safety margin) guarantees that descending/ascending
- *   scale steps (100-204 cents) and fast ornamental oscillations never break, even at low dt.
- * - Dynamically scales with actual elapsed time (dtMs = timeMs - prevTime), automatically
- *   accommodating callback interval spikes (44-58 ms) and bridged gaps (up to 80 ms).
- * - Upper bound cap: 500 cents (prevents bridging across large leaps, fourths, fifths, or octaves).
+ * - Fast gamakas / meends: up to ~4,000 cents/sec.
+ * - Maximum conceivable vocal transition: ~6,000 cents/sec.
+ *
+ * A 100-cent semitone transition physically requires at least 20–30 ms.
+ * Any pitch step exceeding 6,000 cents/sec is mathematically an octave-tracking
+ * error, harmonic jump, or unvoiced noise spike — NEVER true human vocal glide.
  */
-const val MAX_PITCH_VELOCITY_CPS = 6000f // 6000 cents/sec (6.0 cents/ms)
-const val MIN_DISCONTINUITY_CENTS = 250f  // 2.5 semitones floor (guarantees whole tones stay connected)
-const val MAX_DISCONTINUITY_CENTS = 500f  // Upper bound cap
-const val DISCONTINUITY_BREAK_CENTS = 400f // Preserved for backwards compatibility
+internal const val MAX_VOICED_VELOCITY_CENTS_PER_SEC = 6000.0
+internal const val MIN_DISCONTINUITY_CENTS = 250.0
+internal const val MAX_DISCONTINUITY_CENTS = 500.0
 
-fun maxPlausibleDeltaCents(dtMs: Long): Float {
-    val velocityBased = (MAX_PITCH_VELOCITY_CPS * dtMs.coerceAtLeast(0L)) / 1000f
+internal fun maxPlausibleDeltaCents(elapsedMs: Long): Double {
+    val dtSec = elapsedMs / 1000.0
+    val velocityBased = MAX_VOICED_VELOCITY_CENTS_PER_SEC * dtSec
     return maxOf(MIN_DISCONTINUITY_CENTS, minOf(MAX_DISCONTINUITY_CENTS, velocityBased))
 }
 
@@ -115,6 +116,7 @@ fun PitchGraph(
     isLive: Boolean,
     autoFollow: Boolean,
     nomenclature: Nomenclature,
+    tuningPreset: TuningPreset = TuningPreset.STANDARD,
     onLiveClick: () -> Unit,
     onScrollStart: () -> Unit,
     onAutoFollowToggle: () -> Unit,
@@ -179,7 +181,7 @@ fun PitchGraph(
                     val voicedFreq = pitchHistory.lastVoicedFreq()
                     if (voicedFreq > 0f) {
                         val centsFromSa = 1200.0 * kotlin.math.log2(voicedFreq.toDouble() / saFrequency.toDouble())
-                        val visualCents = Swara.actualToVisualCents(centsFromSa).toFloat()
+                        val visualCents = Swara.actualToVisualCents(centsFromSa, tuningPreset).toFloat()
                         // 2-cent deadband prevents hunting/jitter on natural vocal vibrato
                         if (kotlin.math.abs(visualCents - lastTargetCenterY) > 2f) {
                             lastTargetCenterY = visualCents
@@ -512,7 +514,7 @@ fun PitchGraph(
                         // Compute X from elapsed time relative to graphRight, strictly preserving detector timestamps
                         val x = graphRight - ((endTime - timeMs) * pixelsPerMs)
                         val centsFromSa = (kotlin.math.ln(freq.toDouble()) - logSa) * ln2Inv
-                        val visualCent = Swara.actualToVisualCents(centsFromSa).toFloat()
+                        val visualCent = Swara.actualToVisualCents(centsFromSa, tuningPreset).toFloat()
                         val y = height - (visualCent - centsMin) * heightScale
 
                         if (ptIdx + 4 <= linePts.size) {

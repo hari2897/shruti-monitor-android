@@ -14,6 +14,22 @@ An advanced, high-performance Android application built for Indian classical mus
 
 ---
 
+## ✨ What's New in Version 1.2.0
+
+- 🎼 **Multi-System Mathematical Tuning Presets**:
+  - **Harmonic (5-Limit JI)**: Pure harmonic thirds & fifths ($G_2 = 6/5$, $D_1 = 8/5$, $N_2 = 9/5$). Maximizes consonance with drone harmonics and eliminates acoustic beating during vocal practice and Hindustani riyaz ($G_2 = 315.6\text{¢}$).
+  - **Pythagorean (3-Limit JI)**: Mathematical swarasthanas derived through the continuous cycle of fourths and fifths ($G_2 = 32/27$, $D_1 = 128/81$, $N_2 = 16/9$). Exactly $21.51\text{¢}$ (Pramāna Shruti / Syntonic Comma) flatter than 5-limit intervals, aligning with traditional Carnatic Veena swarasthana charts and classic treatises ($G_2 = 294.1\text{¢}$).
+  - **12-Tone Equal Temperament (12-EDO / Western)**: Standard chromatic reference with equal 100¢ semitones ($G_2 = 300\text{¢}$) for practicing alongside Western instruments.
+- 🎛️ **Decoupled Nomenclature & Intelligent Defaults**: Nomenclature naming (`Hindustani [Sa Re Ga]` vs. `Carnatic [Sa Ri Ga]`) is completely decoupled from the acoustic tuning engine. Switching between traditions sets intelligent defaults (Carnatic defaults to 3-Limit, Hindustani defaults to 5-Limit) without overriding custom tuning preferences once chosen.
+- 🏷️ **Floating Quick-Switch Tuning Chip**: Instant, one-tap cycling between tuning systems directly on the Pitch Monitor screen without needing to navigate away to Settings.
+- 🔄 **Native In-App Software Updates & One-Click Installer**:
+  - Automatically notifies musicians when a new version is released (throttled to once every 24 hours).
+  - Displays formatted release notes, download file size, and an animated streaming download progress bar.
+  - One-click native installation via Android's package installer.
+  - Manual "Check for Updates" button with live status in Settings -> About.
+
+---
+
 ## ✨ What's New in Version 1.1.1
 
 - 🪕 **Tanpura State Synchronization Across Tabs**: Starting the Tanpura drone and navigating between tabs (Monitor, Ragas, Settings) keeps the drone playing uninterrupted, and returning to the Instruments screen accurately reflects the active playing state (displaying "STOP" with continuous string animations).
@@ -40,11 +56,11 @@ If you just want to use the app on your Android phone, you do not need to build 
 
 1. **Download the Installer (APK)**:
    - On your Android phone, open your web browser and click this direct download link:
-     [Download ShrutiMonitor-v1.1.1.apk (Direct Link)](https://github.com/hari2897/shruti-monitor-android/releases/download/v1.1.1/ShrutiMonitor-v1.1.1.apk)
+     [Download ShrutiMonitor-v1.2.0.apk (Direct Link)](https://github.com/hari2897/shruti-monitor-android/releases/download/v1.2.0/ShrutiMonitor-v1.2.0.apk)
    - Or, go to the **Releases** tab on this GitHub page and download the latest `.apk` file.
 
 2. **Open the File**:
-   - Once downloaded, pull down your notification shade or open your phone's **Files** / **Downloads** app, and tap the downloaded `ShrutiMonitor-v1.1.1.apk` file.
+   - Once downloaded, pull down your notification shade or open your phone's **Files** / **Downloads** app, and tap the downloaded `ShrutiMonitor-v1.2.0.apk` file.
 
 3. **Allow Installation**:
    - If your phone displays a message saying *"For your security, your phone is not allowed to install unknown apps from this source"*, tap **Settings** in that message box and toggle on the switch for **Allow from this source**.

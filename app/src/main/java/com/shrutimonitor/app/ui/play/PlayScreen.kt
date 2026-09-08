@@ -189,6 +189,7 @@ fun PlayScreen(
                         playingSwaras = state.playingSwaras,
                         saFrequency = state.saFrequency,
                         nomenclature = state.nomenclature,
+                        tuningPreset = state.tuningPreset,
                         onSwaraToggle = { viewModel.toggleSwaraPlay(it) }
                     )
                 }
