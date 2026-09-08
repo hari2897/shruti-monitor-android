@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "com.shrutimonitor.app"
-    compileSdk = 36
+    compileSdk = 35
     defaultConfig {
         applicationId = "com.shrutimonitor.app"
         minSdk = 26
