@@ -1,6 +1,28 @@
-﻿# 📜 Shruti Monitor Changelog
+# 📜 Shruti Monitor Changelog
 
 All notable changes to the **Shruti Monitor** application are documented in this file.
+
+---
+
+## [Version 1.1.1] - 2026-09-08
+
+### 🌟 Release Summary
+Version 1.1.1 resolves a critical state preservation and navigation issue where the Tanpura drone playback state was lost when navigating across tabs, and ensures bottom tab navigation cleanly restores screen state.
+
+---
+
+### 🚀 Bug Fixes & Improvements
+
+#### 1. 🪕 Tanpura Playback State Synchronization Across Navigation
+- **Root-Cause Fix**: `PlayViewModel` previously defaulted `tanpuraPlaying` to `false` and lacked reactive observation of the background `TanpuraSynthesizer` sequencer thread.
+- **Live State Flow**: `TanpuraSynthesizer` now provides an observable `isPlaying: StateFlow<Boolean>` that stays synchronized with the physical synthesis thread. `PlayViewModel` subscribes to this state and initializes directly from the synthesizer's live state.
+- **Reliable Toggle**: Tapping the Tanpura button directly checks the engine's physical running status instead of inverting a local flag, eliminating desynchronized button states.
+- **Uninterrupted Riyaz**: Removed synthesizer teardown on screen disposal so the Tanpura drone continues playing continuously in the background while musicians practice and monitor pitch on the Monitor tab.
+- **App Lifecycle Cleanup**: Added `onDestroy()` in `MainActivity` to release audio synthesizer resources when the app is completely exited.
+
+#### 2. 🧭 Bottom Tab Navigation Backstack Restoration
+- **Root-Cause Fix**: Bottom navigation tab clicks previously targeted the already-popped splash screen route for `popUpTo`, causing navigation to fail to pop destinations and continuously inflate the backstack with duplicate screens on every tab switch.
+- **Proper State Preservation**: All tab navigation and Ragas navigation now pop up to `Screen.Monitor.route` with `saveState = true` and `restoreState = true`, cleanly preserving tab state, scroll positions, and instrument selections.
 
 ---
 

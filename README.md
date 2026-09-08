@@ -14,6 +14,14 @@ An advanced, high-performance Android application built for Indian classical mus
 
 ---
 
+## ✨ What's New in Version 1.1.1
+
+- 🪕 **Tanpura State Synchronization Across Tabs**: Starting the Tanpura drone and navigating between tabs (Monitor, Ragas, Settings) keeps the drone playing uninterrupted, and returning to the Instruments screen accurately reflects the active playing state (displaying "STOP" with continuous string animations).
+- 🧭 **Restored Tab Navigation Backstack**: Bottom navigation tabs now pop up to the primary Monitor tab with full state preservation (`saveState` / `restoreState`), preventing duplicate screens from stacking in the backstack and properly remembering selected instrument tabs.
+- 🛑 **Graceful App Lifecycle Teardown**: Synthesizer audio loops safely shut down on app finish to prevent background audio leaks.
+
+---
+
 ## ✨ What's New in Version 1.1.0
 
 - 🎙️ **Smooth, Continuous Vocal Pitch Trace**: Completely re-engineered the pitch rendering pipeline to produce continuous, fluid vocal curves matching reference pitch monitors, eliminating artificial staircase quantization and median filter lag.
@@ -32,11 +40,11 @@ If you just want to use the app on your Android phone, you do not need to build 
 
 1. **Download the Installer (APK)**:
    - On your Android phone, open your web browser and click this direct download link:
-     [Download ShrutiMonitor-v1.1.0.apk (Direct Link)](https://github.com/hari2897/shruti-monitor-android/releases/download/v1.1.0/ShrutiMonitor-v1.1.0.apk)
+     [Download ShrutiMonitor-v1.1.1.apk (Direct Link)](https://github.com/hari2897/shruti-monitor-android/releases/download/v1.1.1/ShrutiMonitor-v1.1.1.apk)
    - Or, go to the **Releases** tab on this GitHub page and download the latest `.apk` file.
 
 2. **Open the File**:
-   - Once downloaded, pull down your notification shade or open your phone's **Files** / **Downloads** app, and tap the downloaded `ShrutiMonitor-v1.0.apk` file.
+   - Once downloaded, pull down your notification shade or open your phone's **Files** / **Downloads** app, and tap the downloaded `ShrutiMonitor-v1.1.1.apk` file.
 
 3. **Allow Installation**:
    - If your phone displays a message saying *"For your security, your phone is not allowed to install unknown apps from this source"*, tap **Settings** in that message box and toggle on the switch for **Allow from this source**.
