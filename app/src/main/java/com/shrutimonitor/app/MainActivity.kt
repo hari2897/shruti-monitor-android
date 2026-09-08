@@ -37,4 +37,11 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        if (isFinishing) {
+            com.shrutimonitor.app.audio.TanpuraSynthesizer.shared.stop()
+        }
+    }
 }

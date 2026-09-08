@@ -106,9 +106,10 @@ fun ShruthiMonitorApp() {
             }
         } else {
             // If denied, they can skip and still explore play instruments / ragas
-            navController.navigate(Screen.Play.route) {
+            navController.navigate(Screen.Monitor.route) {
                 popUpTo(Screen.Permission.route) { inclusive = true }
             }
+            navController.navigate(Screen.Play.route)
         }
     }
 
@@ -178,7 +179,7 @@ fun ShruthiMonitorApp() {
                                 .clickable {
                                     HapticManager.tick(view)
                                     navController.navigate(screen.route) {
-                                        popUpTo(navController.graph.findStartDestination().id) {
+                                        popUpTo(Screen.Monitor.route) {
                                             saveState = true
                                         }
                                         launchSingleTop = true
@@ -271,9 +272,10 @@ fun ShruthiMonitorApp() {
                         launcher.launch(Manifest.permission.RECORD_AUDIO)
                     },
                     onSkipClick = {
-                        navController.navigate(Screen.Play.route) {
+                        navController.navigate(Screen.Monitor.route) {
                             popUpTo(Screen.Permission.route) { inclusive = true }
                         }
+                        navController.navigate(Screen.Play.route)
                     }
                 )
             }
@@ -283,7 +285,7 @@ fun ShruthiMonitorApp() {
                 MonitorScreen(
                     onNavigateToRagas = {
                         navController.navigate(Screen.Ragas.route) {
-                            popUpTo(navController.graph.findStartDestination().id) {
+                            popUpTo(Screen.Monitor.route) {
                                 saveState = true
                             }
                             launchSingleTop = true

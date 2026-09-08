@@ -5,6 +5,9 @@ import android.media.AudioAttributes
 import android.media.SoundPool
 import android.util.Log
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 /**
  * Configuration for the first string (Jhala string) of the Tanpura.
@@ -55,6 +58,8 @@ class TanpuraSynthesizer(
     @Volatile var onStringPlucked: ((Int) -> Unit)? = null
 
     private val isRunning = AtomicBoolean(false)
+    private val _isPlaying = MutableStateFlow(false)
+    val isPlaying: StateFlow<Boolean> = _isPlaying.asStateFlow()
     private var soundPool: SoundPool? = null
     private var playThread: Thread? = null
     private var appContext: Context? = null
@@ -95,6 +100,7 @@ class TanpuraSynthesizer(
         }
 
         isRunning.set(true)
+        _isPlaying.value = true
 
         val audioAttributes = AudioAttributes.Builder()
             .setUsage(AudioAttributes.USAGE_MEDIA)
@@ -134,6 +140,7 @@ class TanpuraSynthesizer(
     fun stop() {
         if (!isRunning.get()) return
         isRunning.set(false) // Signal plucking thread to stop immediately
+        _isPlaying.value = false
 
         // Start a background thread to fade out active streams and release SoundPool
         Thread({
@@ -376,152 +383,157 @@ class TanpuraSynthesizer(
      */
     private fun runSequencerLoop() {
         Log.d(TAG, "Sequencer loop thread started")
-        
-        var isEvenCycle = true
-        var pluckCount = 0
+        try {
+            var isEvenCycle = true
+            var pluckCount = 0
 
-        // Synchronize initialization of streams
-        synchronized(loadLock) {
-            for (i in 0..3) {
-                evenStreams[i] = 0
-                oddStreams[i] = 0
-            }
-        }
-
-        while (isRunning.get()) {
-            val currentSa = saFrequency
-            val currentNoteName = saNoteName
-            val currentOctave = saOctave
-            val currentJhala = jhalaString
-            val currentVol = volume
-            val currentSpeedVal = speed
-            
-            // 1. Determine Male/Female mode based on saFrequency
-            // Threshold around G3/G#3 (180 Hz)
-            val isFemale = currentSa >= 180f
-            val maleMode = !isFemale
-            val toneType = if (isFemale) 3 else 1
-            
-            // Calculate base pitchIndex relative to base octave (3 for Male, 4 for Female)
-            val noteNamesList = listOf("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")
-            val noteIdx = noteNamesList.indexOf(currentNoteName).coerceAtLeast(0)
-            val baseOctave = if (maleMode) 3 else 4
-            var pitchIndex = (currentOctave - baseOctave) * 12 + noteIdx
-            
-            // Fold into valid range [-3, 12]
-            while (pitchIndex > 12) {
-                pitchIndex -= 12
-            }
-            while (pitchIndex < -3) {
-                pitchIndex += 12
-            }
-
-            // Define string target pitch offsets relative to root
-            val p0 = pitchIndex
-            val p1 = pitchIndex + 12
-            val p2 = pitchIndex + 12
-            val semitones3 = when (currentJhala) {
-                JhalaString.PA -> 7
-                JhalaString.MA -> 5
-                JhalaString.NI -> 11
-            }
-            val p3 = pitchIndex + semitones3
-
-            // 3. Resolve resource names
-            val res0 = getSampleName(p0, maleMode, isSwar = false)
-            val res12 = getSampleName(p1, maleMode, isSwar = true)
-            val res3 = getSampleName(p3, maleMode, isSwar = false)
-            
-            val requiredRes = listOf(res0, res12, res3)
-            
-            // 4. Load samples and prune others to optimize memory heap
-            val sampleId0 = loadSampleIfNeeded(res0)
-            val sampleId12 = loadSampleIfNeeded(res12)
-            val sampleId3 = loadSampleIfNeeded(res3)
-            
-            pruneUnusedSamples(requiredRes)
-            
-            // 5. Wait for SoundPool loading to complete for active samples
-            val ready0 = waitForReady(sampleId0)
-            val ready12 = waitForReady(sampleId12)
-            val ready3 = waitForReady(sampleId3)
-            
-            if (!ready0 || !ready12 || !ready3) {
-                Log.w(TAG, "Audio samples not ready yet. Retrying...")
-                if (!safeSleep(100)) break
-                continue
-            }
-            
-            // 6. Calculate playback rates with cents adjustments (exclusive to cents + 432 Hz)
-            val totalCents = fineTuningCents + (if (is432HzMode) -32.0f else 0.0f)
-            val rate = if (totalCents > 0.0f) {
-                1.0f + (totalCents * 0.00059463095f)
-            } else if (totalCents < 0.0f) {
-                1.0f + (totalCents * 0.00056125689f)
-            } else {
-                1.0f
-            }
-            val coercedRate = rate.coerceIn(0.5f, 2.0f)
-            
-            // 7. Calculate speed factor k from speed slider [0.5, 2.0]
-            val k = if (currentSpeedVal < 1.0f) {
-                0.75f - (currentSpeedVal - 1.0f) * 0.42f
-            } else {
-                0.75f - (currentSpeedVal - 1.0f) * 0.30f
-            }
-            val coercedK = k.coerceIn(0.45f, 0.96f)
-            
-            // 8. Play sequenced notes using double buffering
-            val activeGroup = if (isEvenCycle) evenStreams else oddStreams
-            
-            // Stop and clear older streams of the same parity before starting plucks
+            // Synchronize initialization of streams
             synchronized(loadLock) {
-                stopAndClearStreams(soundPool, activeGroup)
+                for (i in 0..3) {
+                    evenStreams[i] = 0
+                    oddStreams[i] = 0
+                }
             }
-            
-            // Progressive volume fade-in scaling for start phase
-            val startFade = when (pluckCount) {
-                0 -> 0.25f
-                1 -> 0.50f
-                2 -> 0.75f
-                else -> 1.0f
+
+            while (isRunning.get()) {
+                val currentSa = saFrequency
+                val currentNoteName = saNoteName
+                val currentOctave = saOctave
+                val currentJhala = jhalaString
+                val currentVol = volume
+                val currentSpeedVal = speed
+                
+                // 1. Determine Male/Female mode based on saFrequency
+                // Threshold around G3/G#3 (180 Hz)
+                val isFemale = currentSa >= 180f
+                val maleMode = !isFemale
+                val toneType = if (isFemale) 3 else 1
+                
+                // Calculate base pitchIndex relative to base octave (3 for Male, 4 for Female)
+                val noteNamesList = listOf("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")
+                val noteIdx = noteNamesList.indexOf(currentNoteName).coerceAtLeast(0)
+                val baseOctave = if (maleMode) 3 else 4
+                var pitchIndex = (currentOctave - baseOctave) * 12 + noteIdx
+                
+                // Fold into valid range [-3, 12]
+                while (pitchIndex > 12) {
+                    pitchIndex -= 12
+                }
+                while (pitchIndex < -3) {
+                    pitchIndex += 12
+                }
+
+                // Define string target pitch offsets relative to root
+                val p0 = pitchIndex
+                val p1 = pitchIndex + 12
+                val p2 = pitchIndex + 12
+                val semitones3 = when (currentJhala) {
+                    JhalaString.PA -> 7
+                    JhalaString.MA -> 5
+                    JhalaString.NI -> 11
+                }
+                val p3 = pitchIndex + semitones3
+
+                // 3. Resolve resource names
+                val res0 = getSampleName(p0, maleMode, isSwar = false)
+                val res12 = getSampleName(p1, maleMode, isSwar = true)
+                val res3 = getSampleName(p3, maleMode, isSwar = false)
+                
+                val requiredRes = listOf(res0, res12, res3)
+                
+                // 4. Load samples and prune others to optimize memory heap
+                val sampleId0 = loadSampleIfNeeded(res0)
+                val sampleId12 = loadSampleIfNeeded(res12)
+                val sampleId3 = loadSampleIfNeeded(res3)
+                
+                pruneUnusedSamples(requiredRes)
+                
+                // 5. Wait for SoundPool loading to complete for active samples
+                val ready0 = waitForReady(sampleId0)
+                val ready12 = waitForReady(sampleId12)
+                val ready3 = waitForReady(sampleId3)
+                
+                if (!ready0 || !ready12 || !ready3) {
+                    Log.w(TAG, "Audio samples not ready yet. Retrying...")
+                    if (!safeSleep(100)) break
+                    continue
+                }
+                
+                // 6. Calculate playback rates with cents adjustments (exclusive to cents + 432 Hz)
+                val totalCents = fineTuningCents + (if (is432HzMode) -32.0f else 0.0f)
+                val rate = if (totalCents > 0.0f) {
+                    1.0f + (totalCents * 0.00059463095f)
+                } else if (totalCents < 0.0f) {
+                    1.0f + (totalCents * 0.00056125689f)
+                } else {
+                    1.0f
+                }
+                val coercedRate = rate.coerceIn(0.5f, 2.0f)
+                
+                // 7. Calculate speed factor k from speed slider [0.5, 2.0]
+                val k = if (currentSpeedVal < 1.0f) {
+                    0.75f - (currentSpeedVal - 1.0f) * 0.42f
+                } else {
+                    0.75f - (currentSpeedVal - 1.0f) * 0.30f
+                }
+                val coercedK = k.coerceIn(0.45f, 0.96f)
+                
+                // 8. Play sequenced notes using double buffering
+                val activeGroup = if (isEvenCycle) evenStreams else oddStreams
+                
+                // Stop and clear older streams of the same parity before starting plucks
+                synchronized(loadLock) {
+                    stopAndClearStreams(soundPool, activeGroup)
+                }
+                
+                // Progressive volume fade-in scaling for start phase
+                val startFade = when (pluckCount) {
+                    0 -> 0.25f
+                    1 -> 0.50f
+                    2 -> 0.75f
+                    else -> 1.0f
+                }
+                if (pluckCount < 3) {
+                    pluckCount++
+                }
+                
+                // Pluck String 0 (T = 0 ms)
+                if (!isRunning.get()) break
+                playString(0, sampleId0, currentVol * startFade * 1.0f, coercedRate, activeGroup)
+                
+                // Delay 1: T = 1580 * k ms
+                val delay1 = (1580.0 * coercedK).toLong()
+                if (!safeSleep(delay1)) break
+                
+                // Pluck String 3 (Pa/Ma/Ni/Sa)
+                val vol3 = currentVol * startFade * paMaNiVolume * 0.96f
+                playString(3, sampleId3, vol3, coercedRate, activeGroup)
+                
+                // Delay 2: T = 3060 * k ms -> Incremental delay = 1480 * k ms
+                val delay2 = (1480.0 * coercedK).toLong()
+                if (!safeSleep(delay2)) break
+                
+                // Pluck String 1
+                playString(1, sampleId12, currentVol * startFade * 0.65f, coercedRate, activeGroup)
+                
+                // Delay 3: T = 3840 * k ms -> Incremental delay = 780 * k ms
+                val delay3 = (780.0 * coercedK).toLong()
+                if (!safeSleep(delay3)) break
+                
+                // Pluck String 2
+                playString(2, sampleId12, currentVol * startFade * 0.90f, coercedRate, activeGroup)
+                
+                // Delay 4: T = 5320 * k ms -> Incremental delay = 1480 * k ms
+                val delay4 = (1480.0 * coercedK).toLong()
+                if (!safeSleep(delay4)) break
+                
+                // Switch stream buffers
+                isEvenCycle = !isEvenCycle
             }
-            if (pluckCount < 3) {
-                pluckCount++
-            }
-            
-            // Pluck String 0 (T = 0 ms)
-            if (!isRunning.get()) break
-            playString(0, sampleId0, currentVol * startFade * 1.0f, coercedRate, activeGroup)
-            
-            // Delay 1: T = 1580 * k ms
-            val delay1 = (1580.0 * coercedK).toLong()
-            if (!safeSleep(delay1)) break
-            
-            // Pluck String 3 (Pa/Ma/Ni/Sa)
-            val vol3 = currentVol * startFade * paMaNiVolume * 0.96f
-            playString(3, sampleId3, vol3, coercedRate, activeGroup)
-            
-            // Delay 2: T = 3060 * k ms -> Incremental delay = 1480 * k ms
-            val delay2 = (1480.0 * coercedK).toLong()
-            if (!safeSleep(delay2)) break
-            
-            // Pluck String 1
-            playString(1, sampleId12, currentVol * startFade * 0.65f, coercedRate, activeGroup)
-            
-            // Delay 3: T = 3840 * k ms -> Incremental delay = 780 * k ms
-            val delay3 = (780.0 * coercedK).toLong()
-            if (!safeSleep(delay3)) break
-            
-            // Pluck String 2
-            playString(2, sampleId12, currentVol * startFade * 0.90f, coercedRate, activeGroup)
-            
-            // Delay 4: T = 5320 * k ms -> Incremental delay = 1480 * k ms
-            val delay4 = (1480.0 * coercedK).toLong()
-            if (!safeSleep(delay4)) break
-            
-            // Switch stream buffers
-            isEvenCycle = !isEvenCycle
+        } finally {
+            isRunning.set(false)
+            _isPlaying.value = false
+            Log.d(TAG, "Sequencer loop thread finished")
         }
     }
 }

@@ -57,12 +57,27 @@ class PlayViewModel(application: Application) : AndroidViewModel(application) {
     private val shrutiPettiPlayer = ShrutiPettiPlayer.shared
     private val keyboardPlayer = KeyboardPlayer.shared
 
-    private val _uiState = MutableStateFlow(PlayUiState())
+    private val _uiState = MutableStateFlow(
+        PlayUiState(
+            tanpuraPlaying = tanpuraSynthesizer.isRunning(),
+            tanpuraVolume = tanpuraSynthesizer.volume,
+            tanpuraSpeed = tanpuraSynthesizer.speed,
+            jhalaString = tanpuraSynthesizer.jhalaString,
+            activeTab = if (tanpuraSynthesizer.isRunning()) PlayTab.TANPURA else PlayTab.KEYBOARD
+        )
+    )
     val uiState: StateFlow<PlayUiState> = _uiState.asStateFlow()
 
     init {
         // Supply application context to Tanpura engine
         tanpuraSynthesizer.setContext(application)
+
+        // Observe Tanpura playback state
+        viewModelScope.launch {
+            tanpuraSynthesizer.isPlaying.collect { playing ->
+                _uiState.update { it.copy(tanpuraPlaying = playing) }
+            }
+        }
 
         // Connect pluck callback to update timestamps in UI state
         tanpuraSynthesizer.onStringPlucked = { stringIndex ->
@@ -148,11 +163,10 @@ class PlayViewModel(application: Application) : AndroidViewModel(application) {
     // ── Tanpura Controls ───────────────────────────────────────────────
 
     fun toggleTanpura() {
-        val nextPlaying = !_uiState.value.tanpuraPlaying
-        if (nextPlaying) {
-            tanpuraSynthesizer.start()
-        } else {
+        if (tanpuraSynthesizer.isRunning()) {
             tanpuraSynthesizer.stop()
+        } else {
+            tanpuraSynthesizer.start()
         }
         _uiState.update { it.copy(tanpuraPlaying = tanpuraSynthesizer.isRunning()) }
     }
@@ -230,8 +244,7 @@ class PlayViewModel(application: Application) : AndroidViewModel(application) {
 
     override fun onCleared() {
         super.onCleared()
-        // Ensure all audio generators are released to prevent memory leaks or audio clipping
-        tanpuraSynthesizer.stop()
+        // Release tab-specific interactive players; Tanpura drone continues running in background for practice
         shrutiPettiPlayer.stop()
         keyboardPlayer.stop()
     }
