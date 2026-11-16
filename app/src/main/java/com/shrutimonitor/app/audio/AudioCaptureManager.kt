@@ -140,18 +140,20 @@ class AudioCaptureManager(private val context: Context) {
     }
 
     /**
-     * Inner capture loop that handles sliding buffer window (50% overlap).
+     * Inner capture loop that handles sliding buffer window (50% overlap)
+     * with a pre-allocated pool of 8 frame buffers to prevent GC allocations.
      */
     private suspend fun runCaptureLoop() {
         val record = audioRecord ?: return
-        
-        // Circular-like sliding buffer of 2048 elements
+
         val analysisBuffer = FloatArray(BUFFER_SIZE)
         val readBuffer = ShortArray(HOP_SIZE)
+        val framePool = Array(8) { FloatArray(BUFFER_SIZE) }
+        var poolIndex = 0
 
         while (isRunning.get() && captureJob?.isActive == true) {
             val readResult = record.read(readBuffer, 0, HOP_SIZE)
-            
+
             if (readResult < 0) {
                 Log.e(TAG, "AudioRecord read error: $readResult")
                 break
@@ -162,20 +164,22 @@ class AudioCaptureManager(private val context: Context) {
                 System.arraycopy(analysisBuffer, HOP_SIZE, analysisBuffer, 0, HOP_SIZE)
 
                 // 2. Convert and load new samples into 1024..2047
+                val invScale = 1.0f / 32768.0f
                 for (i in 0 until readResult) {
-                    analysisBuffer[HOP_SIZE + i] = readBuffer[i].toFloat() / 32768.0f
+                    analysisBuffer[HOP_SIZE + i] = readBuffer[i].toFloat() * invScale
                 }
 
-                // If we didn't read a full hop (e.g. read error/short read), pad the rest with zeroes
                 for (i in readResult until HOP_SIZE) {
                     analysisBuffer[HOP_SIZE + i] = 0.0f
                 }
 
                 val captureTimeMs = android.os.SystemClock.uptimeMillis()
 
-                // 3. Emit a copy of the complete 2048-sample analysis window with capture timestamp
-                val frameCopy = analysisBuffer.clone()
-                _audioFrames.emit(CapturedAudioFrame(frameCopy, captureTimeMs))
+                // 3. Copy into pre-allocated pool slot (zero heap allocations)
+                val pooledFrame = framePool[poolIndex]
+                poolIndex = (poolIndex + 1) and 7
+                System.arraycopy(analysisBuffer, 0, pooledFrame, 0, BUFFER_SIZE)
+                _audioFrames.emit(CapturedAudioFrame(pooledFrame, captureTimeMs))
             }
         }
     }

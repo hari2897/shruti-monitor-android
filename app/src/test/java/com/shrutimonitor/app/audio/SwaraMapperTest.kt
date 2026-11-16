@@ -65,4 +65,31 @@ class SwaraMapperTest {
         assertEquals("Should map to PA", Swara.PA, result.swara)
         assertEquals("Deviation should be 0, NOT +4300 cents", 0.0f, result.centDeviation, 0.5f)
     }
+
+    @Test
+    fun testAtiMandraSaptakSa() {
+        val atiMandraSaFreq = saFreq * 0.25f // 2 octaves below Sa
+        val result = mapper.mapFrequency(saFreq, atiMandraSaFreq)
+        assertEquals("Should map to SA", Swara.SA, result.swara)
+        assertEquals("Deviation should be close to 0", 0f, result.centDeviation, 0.1f)
+        assertEquals("Should be Ati-Mandra saptak", Saptak.ATI_MANDRA, result.saptak)
+    }
+
+    @Test
+    fun testMandraSaptakSa() {
+        val mandraSaFreq = saFreq * 0.5f // 1 octave below Sa
+        val result = mapper.mapFrequency(saFreq, mandraSaFreq)
+        assertEquals("Should map to SA", Swara.SA, result.swara)
+        assertEquals("Deviation should be close to 0", 0f, result.centDeviation, 0.1f)
+        assertEquals("Should be Mandra saptak", Saptak.MANDRA, result.saptak)
+    }
+
+    @Test
+    fun testAtiTaraSaptakSa() {
+        val atiTaraSaFreq = saFreq * 4.0f // 2 octaves above Sa
+        val result = mapper.mapFrequency(saFreq, atiTaraSaFreq)
+        assertEquals("Should map to SA", Swara.SA, result.swara)
+        assertEquals("Deviation should be close to 0", 0f, result.centDeviation, 0.1f)
+        assertEquals("Should be Ati-Tara saptak", Saptak.ATI_TARA, result.saptak)
+    }
 }

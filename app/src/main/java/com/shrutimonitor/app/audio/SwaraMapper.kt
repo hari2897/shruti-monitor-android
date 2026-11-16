@@ -24,7 +24,7 @@ class SwaraMapper {
             saFrequency: Float,
             tuningPreset: TuningPreset = TuningPreset.STANDARD
         ): Float {
-            val octaveOffset = saptak.ordinal - Saptak.MADHYA.ordinal
+            val octaveOffset = saptak.octaveOffset
             val octaveMultiplier = Math.pow(2.0, octaveOffset.toDouble())
             return (saFrequency.toDouble() * tuningPreset.ratioForSwara(swara) * octaveMultiplier).toFloat()
         }
@@ -70,7 +70,7 @@ class SwaraMapper {
         var bestIdealCents = 0.0
 
         // Test the swaras in the base octave and its neighboring octaves
-        for (oct in (baseOctave - 1)..(baseOctave + 1)) {
+        for (oct in (baseOctave - 2)..(baseOctave + 2)) {
             for (swara in Swara.entries) {
                 val swaraCents = tuningPreset.centsForSwara(swara)
                 val idealCents = oct * 1200.0 + swaraCents
@@ -89,14 +89,18 @@ class SwaraMapper {
 
         // Map octave offset to Saptak enum
         val saptak = when {
-            bestOctave < 0 -> Saptak.MANDRA
-            bestOctave > 0 -> Saptak.TARA
-            else -> Saptak.MADHYA
+            bestOctave <= -2 -> Saptak.ATI_MANDRA
+            bestOctave == -1 -> Saptak.MANDRA
+            bestOctave == 0 -> Saptak.MADHYA
+            bestOctave == 1 -> Saptak.TARA
+            else -> Saptak.ATI_TARA
         }
 
         // Ideal frequency: Sa * swaraRatio * 2^octave
         val octaveMultiplier = Math.pow(2.0, bestOctave.toDouble())
         val idealFrequency = (saFrequency.toDouble() * tuningPreset.ratioForSwara(bestSwara) * octaveMultiplier).toFloat()
+
+        val nearestShruti = com.shrutimonitor.app.data.Shruti22.nearestForCentsInOctave(centsFromSa)
 
         return SwaraResult(
             swara = bestSwara,
@@ -105,7 +109,8 @@ class SwaraMapper {
             frequency = detectedFrequency,
             idealFrequency = idealFrequency,
             saptak = saptak,
-            timestamp = timestamp
+            timestamp = timestamp,
+            shrutiName = nearestShruti.sanskritName
         )
     }
 }

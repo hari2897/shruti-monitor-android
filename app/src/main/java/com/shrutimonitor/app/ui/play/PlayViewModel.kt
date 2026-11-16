@@ -45,7 +45,10 @@ data class PlayUiState(
     val jhalaString: JhalaString = JhalaString.PA,
     val tanpuraFineTuning: Float = 0.0f,
     val tanpura432Hz: Boolean = false,
-    val stringPluckTimestamps: List<Long> = listOf(0L, 0L, 0L, 0L),
+    val fiveStringMode: Boolean = true,
+    val dualTanpuraEnabled: Boolean = false,
+    val javariSpreadCents: Float = 2.2f,
+    val stringPluckTimestamps: List<Long> = listOf(0L, 0L, 0L, 0L, 0L),
     val playingSwaras: Set<Int> = emptySet(), // Toggled swaras in Shruti Petti (Mandra/Madhya/Tara separate)
     val keyboardPressedKeys: Set<Int> = emptySet() // Pressed keys absolute indexes
 )
@@ -65,6 +68,10 @@ class PlayViewModel(application: Application) : AndroidViewModel(application) {
             tanpuraVolume = tanpuraSynthesizer.volume,
             tanpuraSpeed = tanpuraSynthesizer.speed,
             jhalaString = tanpuraSynthesizer.jhalaString,
+            fiveStringMode = tanpuraSynthesizer.fiveStringMode,
+            dualTanpuraEnabled = tanpuraSynthesizer.dualTanpuraEnabled,
+            javariSpreadCents = tanpuraSynthesizer.javariSpreadCents,
+            stringPluckTimestamps = listOf(0L, 0L, 0L, 0L, 0L),
             activeTab = if (tanpuraSynthesizer.isRunning()) PlayTab.TANPURA else PlayTab.KEYBOARD
         )
     )
@@ -85,7 +92,7 @@ class PlayViewModel(application: Application) : AndroidViewModel(application) {
         tanpuraSynthesizer.onStringPlucked = { stringIndex ->
             _uiState.update { state ->
                 val list = state.stringPluckTimestamps.toMutableList()
-                if (stringIndex in 0..3) {
+                if (stringIndex in list.indices) {
                     list[stringIndex] = System.currentTimeMillis()
                 }
                 state.copy(stringPluckTimestamps = list)
@@ -205,6 +212,21 @@ class PlayViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             settingsRepository.updateTanpura432Hz(enabled)
         }
+    }
+
+    fun setFiveStringMode(enabled: Boolean) {
+        tanpuraSynthesizer.fiveStringMode = enabled
+        _uiState.update { it.copy(fiveStringMode = enabled) }
+    }
+
+    fun setDualTanpuraEnabled(enabled: Boolean) {
+        tanpuraSynthesizer.dualTanpuraEnabled = enabled
+        _uiState.update { it.copy(dualTanpuraEnabled = enabled) }
+    }
+
+    fun setJavariSpreadCents(cents: Float) {
+        tanpuraSynthesizer.javariSpreadCents = cents
+        _uiState.update { it.copy(javariSpreadCents = cents) }
     }
 
     /**

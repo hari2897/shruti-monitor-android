@@ -11,8 +11,11 @@ android {
         applicationId = "com.shrutimonitor.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 4
-        versionName = "1.2.0"
+        versionCode = 5
+        versionName = "2.1.0"
+        ndk {
+            abiFilters += listOf("arm64-v8a")
+        }
     }
 
     buildTypes {
@@ -32,10 +35,27 @@ android {
       shaders = false
     }
 
+    sourceSets {
+        getByName("main") {
+            jniLibs.srcDirs("src/main/jniLibs")
+        }
+    }
+
     packaging {
       resources {
         excludes += "/META-INF/{AL2.0,LGPL2.1}"
       }
+      jniLibs {
+        useLegacyPackaging = true
+      }
+    }
+
+    androidResources {
+        noCompress.addAll(listOf("pak", "wav", "flac"))
+    }
+
+    testOptions {
+        unitTests.isReturnDefaultValues = true
     }
 }
 

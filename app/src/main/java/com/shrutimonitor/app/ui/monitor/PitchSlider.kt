@@ -37,27 +37,19 @@ fun PitchSlider(
     tuningPreset: TuningPreset = TuningPreset.STANDARD,
     modifier: Modifier = Modifier
 ) {
-    // 1. Keep track of current active octave for scrolling hysteresis
-    var currentOctave by remember { mutableStateOf(0) }
+    // 1. Keep track of continuous viewport center with deadband
+    var targetViewportCenter by remember { mutableStateOf(0f) }
 
     if (centsFromSa != null) {
-        val cents = Swara.actualToVisualCents(centsFromSa.toDouble(), tuningPreset)
-        val thresholdLow = currentOctave * 1200.0 - 50.0
-        val thresholdHigh = currentOctave * 1200.0 + 1250.0
-        
-        if (cents > thresholdHigh) {
-            currentOctave = kotlin.math.floor(cents / 1200.0).toInt()
-        } else if (cents < thresholdLow) {
-            currentOctave = kotlin.math.floor(cents / 1200.0).toInt()
+        val visualCent = Swara.actualToVisualCents(centsFromSa.toDouble(), tuningPreset).toFloat()
+        if (kotlin.math.abs(visualCent - targetViewportCenter) > 35f) {
+            targetViewportCenter = visualCent
         }
     }
 
-    // 2. Target viewport center cents position
-    val targetCenter = currentOctave * 1200.0 + 600.0
-
     // Animate viewport center smoothly using Spring physics for organic musical feel
     val viewportCenter by animateFloatAsState(
-        targetValue = targetCenter.toFloat(),
+        targetValue = targetViewportCenter,
         animationSpec = spring(
             dampingRatio = 0.85f,
             stiffness = 80f // Slightly slower stiffness for smooth horizontal slide scrolling
@@ -65,7 +57,7 @@ fun PitchSlider(
         label = "viewportCenterCents"
     )
 
-    // 3. Target thumb position on the continuous scale
+    // 2. Target thumb position on the continuous scale
     val targetCents = if (centsFromSa != null) {
         Swara.actualToVisualCents(centsFromSa.toDouble(), tuningPreset).toFloat()
     } else {
@@ -87,7 +79,7 @@ fun PitchSlider(
     val outlineColor = MaterialTheme.colorScheme.outline
     val onSurfaceVariantColor = MaterialTheme.colorScheme.onSurfaceVariant
 
-    // 4. Render Canvas
+    // 3. Render Canvas
     Canvas(
         modifier = modifier
             .fillMaxWidth()
@@ -108,9 +100,9 @@ fun PitchSlider(
             strokeWidth = 2.dp.toPx()
         )
 
-        // Draw swarasthanas ticks and labels for 5 octaves (-24 to 36 semitones)
+        // Draw swarasthanas ticks and labels for 5+ octaves (-36 to 36 semitones)
         // Visually map them relative to the scrolling viewportCenter
-        for (i in -24..36) {
+        for (i in -36..36) {
             val tickCents = i * 100.0
             
             // Project cent position to screen coordinates based on animated viewport center
@@ -119,10 +111,9 @@ fun PitchSlider(
 
             // Performance: Only draw if within visible canvas bounds
             if (x in -20f..(width + 20f)) {
-                val isSa = i % 12 == 0
-                val isPa = i % 12 == 7 || i % 12 == -5
-                
                 val swaraIdx = (i % 12 + 12) % 12
+                val isSa = swaraIdx == 0
+                val isPa = swaraIdx == 7
                 val swara = Swara.fromIndex(swaraIdx)
 
                 // Check if this swara is in the active raga (Sa is always in the raga)

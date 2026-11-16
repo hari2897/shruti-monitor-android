@@ -131,3 +131,58 @@ enum class TuningPreset(
         }
     }
 }
+
+/**
+ * Complete 22-Shruti (Dvaavimshati Shruti) microtonal reference table
+ * based on Bharata / Sarangadeva & Sambamoorthy's Carnatic-Hindustani Shruti ratios.
+ */
+enum class Shruti22(
+    val shrutiNumber: Int,
+    val sanskritName: String,
+    val swaraIndex: Int,
+    val ratio: Double
+) {
+    TIVRA(1, "Tivra (Sa)", 0, 1.0),
+    KUMUDVATI(2, "Kumudvati (R1-)", 1, 256.0 / 243.0),
+    MANDA(3, "Manda (R1+)", 1, 16.0 / 15.0),
+    CHANDOVATI(4, "Chandovati (R2-)", 2, 10.0 / 9.0),
+    DAYAVATI(5, "Dayavati (R2+ / G1)", 2, 9.0 / 8.0),
+    RANJANI(6, "Ranjani (G2-)", 3, 32.0 / 27.0),
+    RATIKA(7, "Ratika (G2+ / R3)", 3, 6.0 / 5.0),
+    RAUDRI(8, "Raudri (G3-)", 4, 5.0 / 4.0),
+    KRODHA(9, "Krodha (G3+)", 4, 81.0 / 64.0),
+    VAJRIKA(10, "Vajrika (M1-)", 5, 4.0 / 3.0),
+    PRASARINI(11, "Prasarini (M1+)", 5, 27.0 / 20.0),
+    PRITI(12, "Priti (M2-)", 6, 45.0 / 32.0),
+    MARJANI(13, "Marjani (M2+)", 6, 729.0 / 512.0),
+    KSHITI(14, "Kshiti (Pa)", 7, 3.0 / 2.0),
+    RAKTA(15, "Rakta (D1-)", 8, 128.0 / 81.0),
+    SANDIPINI(16, "Sandipini (D1+)", 8, 8.0 / 5.0),
+    ALAPINI(17, "Alapini (D2-)", 9, 5.0 / 3.0),
+    MADANTI(18, "Madanti (D2+ / N1)", 9, 27.0 / 16.0),
+    ROHINI(19, "Rohini (N2-)", 10, 16.0 / 9.0),
+    RAMYA(20, "Ramya (N2+ / D3)", 10, 9.0 / 5.0),
+    UGRA(21, "Ugra (N3-)", 11, 15.0 / 8.0),
+    KSHOBHINI(22, "Kshobhini (N3+)", 11, 243.0 / 128.0);
+
+    val cents: Double = 1200.0 * (kotlin.math.ln(ratio) / kotlin.math.ln(2.0))
+
+    companion object {
+        fun nearestForCentsInOctave(centsInOctave: Double): Shruti22 {
+            val normalized = ((centsInOctave % 1200.0) + 1200.0) % 1200.0
+            var best = TIVRA
+            var minDiff = Double.MAX_VALUE
+            for (s in entries) {
+                val diff = kotlin.math.abs(normalized - s.cents)
+                val wrapDiff = kotlin.math.abs(normalized - (s.cents + 1200.0))
+                val actualDiff = minOf(diff, wrapDiff)
+                if (actualDiff < minDiff) {
+                    minDiff = actualDiff
+                    best = s
+                }
+            }
+            return best
+        }
+    }
+}
+

@@ -117,6 +117,11 @@ fun PitchGraph(
     autoFollow: Boolean,
     nomenclature: Nomenclature,
     tuningPreset: TuningPreset = TuningPreset.STANDARD,
+    rmsAmplitude: Float = 0f,
+    harmonicBrightness: Float = 0f,
+    inTuneFactor: Float = 0f,
+    shaderVisualsEnabled: Boolean = true,
+    ghostTrace: com.shrutimonitor.app.audio.GhostTraceData? = null,
     onLiveClick: () -> Unit,
     onScrollStart: () -> Unit,
     onAutoFollowToggle: () -> Unit,
@@ -252,6 +257,28 @@ fun PitchGraph(
             alpha = 255
         }
     }
+    val outerBloomPaint = remember(density) {
+        android.graphics.Paint().apply {
+            isAntiAlias = true
+            style = android.graphics.Paint.Style.STROKE
+            strokeCap = android.graphics.Paint.Cap.ROUND
+            strokeWidth = with(density) { 5.5.dp.toPx() }
+            alpha = (0.11f * 255).roundToInt()
+        }
+    }
+    val ghostPaint = remember(density) {
+        android.graphics.Paint().apply {
+            isAntiAlias = true
+            style = android.graphics.Paint.Style.STROKE
+            strokeCap = android.graphics.Paint.Cap.ROUND
+            strokeWidth = with(density) { 2.2.dp.toPx() }
+            color = android.graphics.Color.argb(115, 0, 230, 180)
+        }
+    }
+    val auroraShader = remember {
+        if (AgslPitchShaders.isSupported) AgslPitchShaders.createAuroraShader() else null
+    }
+    val auroraPaint = remember { android.graphics.Paint() }
     val thickGridStroke = remember(density) { with(density) { 1.5.dp.toPx() } }
     val thinGridStroke = remember(density) { with(density) { 0.8.dp.toPx() } }
     val saLineStroke = remember(density) { with(density) { 2.dp.toPx() } }
@@ -302,7 +329,6 @@ fun PitchGraph(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .clip(RoundedCornerShape(24.dp))
             .background(graphBg)
             .pointerInput(Unit) {
                 awaitEachGesture {
@@ -415,44 +441,66 @@ fun PitchGraph(
             val centsMin = centerY - (centsRange / 2f)
             val centsMax = centerY + (centsRange / 2f)
 
+            // ── 0. GPU AGSL AURORA RESONANCE FIELD (Android 13-15+) ──
+            if (shaderVisualsEnabled && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU && auroraShader != null) {
+                val latestFreq = pitchHistory.lastVoicedFreq()
+                val normPitchY = if (latestFreq > 0f && saFrequency > 0f) {
+                    val c = 1200.0 * kotlin.math.log2(latestFreq.toDouble() / saFrequency.toDouble())
+                    val vc = Swara.actualToVisualCents(c, tuningPreset).toFloat()
+                    (1f - (vc - centsMin) / centsRange).coerceIn(0f, 1f)
+                } else {
+                    0.5f
+                }
+                auroraShader.setFloatUniform("uResolution", width, height)
+                auroraShader.setFloatUniform("uTime", (nowMs % 100000L) / 1000f)
+                auroraShader.setFloatUniform("uRms", (rmsAmplitude * 8f).coerceIn(0f, 1f))
+                auroraShader.setFloatUniform("uInTuneFactor", inTuneFactor.coerceIn(0f, 1f))
+                auroraShader.setFloatUniform("uPitchY", normPitchY)
+                auroraShader.setFloatUniform("uBrightness", harmonicBrightness.coerceIn(0f, 1f))
+                auroraPaint.shader = auroraShader
+                drawContext.canvas.nativeCanvas.drawRect(0f, 0f, width, height, auroraPaint)
+            }
+
             // ── DRAW GRID LINES & LABELS ──
-            val startOctave = floor(centsMin / 1200.0).toInt()
-            val endOctave = ceil(centsMax / 1200.0).toInt()
+            val startOctave = floor(centsMin / 1200.0).toInt().coerceAtLeast(-4)
+            val endOctave = ceil(centsMax / 1200.0).toInt().coerceAtMost(4)
 
             textPaint.color = primaryColor.copy(alpha = 0.5f).toArgb()
             textPaint.textSize = textSizePx
 
-            for (oct in startOctave..endOctave) {
-                val octIdx = (oct + 4).coerceIn(0, 8)
-                for (i in 0..11) {
-                    val absoluteCents = oct * 1200.0 + (i * 100.0)
+            if (startOctave <= endOctave) {
+                for (oct in startOctave..endOctave) {
+                    val octIdx = (oct + 4).coerceIn(0, 8)
+                    for (i in 0..11) {
+                        val absoluteCents = oct * 1200.0 + (i * 100.0)
 
-                    if (absoluteCents in centsMin..centsMax) {
-                        val y = height - (absoluteCents.toFloat() - centsMin) * heightScale
+                        if (absoluteCents in centsMin..centsMax) {
+                            val y = height - (absoluteCents.toFloat() - centsMin) * heightScale
 
-                        val isInRaga = activeRagaSwaras == null || activeRagaSwaras.contains(i)
-                        val lineOpacity = if (isInRaga) {
-                            if (i == 0) 0.35f else 0.20f
-                        } else {
-                            0.05f
-                        }
-                        val strokeW = if (i == 0 && isInRaga) thickGridStroke else thinGridStroke
+                            val isInRaga = activeRagaSwaras == null || activeRagaSwaras.contains(i)
+                            val lineOpacity = if (isInRaga) {
+                                if (i == 0) 0.35f else 0.20f
+                            } else {
+                                0.05f
+                            }
+                            val strokeW = if (i == 0 && isInRaga) thickGridStroke else thinGridStroke
 
-                        drawLine(
-                            color = primaryColor.copy(alpha = lineOpacity),
-                            start = Offset(0f, y),
-                            end = Offset(width, y),
-                            strokeWidth = strokeW
-                        )
-
-                        if (isInRaga) {
-                            val labelText = precomputedLabels[octIdx][i]
-                            drawContext.canvas.nativeCanvas.drawText(
-                                labelText,
-                                textXPx,
-                                y - textYOffsetPx,
-                                textPaint
+                            drawLine(
+                                color = primaryColor.copy(alpha = lineOpacity),
+                                start = Offset(0f, y),
+                                end = Offset(width, y),
+                                strokeWidth = strokeW
                             )
+
+                            if (isInRaga) {
+                                val labelText = precomputedLabels[octIdx][i]
+                                drawContext.canvas.nativeCanvas.drawText(
+                                    labelText,
+                                    textXPx,
+                                    y - textYOffsetPx,
+                                    textPaint
+                                )
+                            }
                         }
                     }
                 }
@@ -469,6 +517,51 @@ fun PitchGraph(
                 )
             }
 
+            // ── DRAW GHOST TRACE (Translucent reference loop) ──
+            if (ghostTrace != null && ghostTrace.size >= 2 && ghostTrace.saFrequency > 0f) {
+                val loopDuration = ghostTrace.durationMs.coerceAtLeast(1000L)
+                val ghostLogSa = kotlin.math.ln(ghostTrace.saFrequency.toDouble())
+                val ln2Inv = 1200.0 / kotlin.math.ln(2.0)
+                val canvas = drawContext.canvas.nativeCanvas
+
+                var prevGx = 0f
+                var prevGy = 0f
+                var hasPrev = false
+
+                val startLoopIndex = (startTime / loopDuration)
+                val endLoopIndex = (endTime / loopDuration)
+
+                for (loopIdx in startLoopIndex..endLoopIndex) {
+                    val loopBaseTime = loopIdx * loopDuration
+                    hasPrev = false
+                    for (i in 0 until ghostTrace.size) {
+                        val gFreq = ghostTrace.freqsHz[i]
+                        val gOffset = ghostTrace.offsetMs[i]
+                        val gTime = loopBaseTime + gOffset
+
+                        if (gTime < startTime - 200L) continue
+                        if (gTime > endTime + 200L) break
+
+                        if (gFreq <= 0f) {
+                            hasPrev = false
+                            continue
+                        }
+
+                        val gx = graphRight - ((endTime - gTime) * pixelsPerMs)
+                        val gCentsFromSa = (kotlin.math.ln(gFreq.toDouble()) - ghostLogSa) * ln2Inv
+                        val gVisualCent = Swara.actualToVisualCents(gCentsFromSa, tuningPreset).toFloat()
+                        val gy = height - (gVisualCent - centsMin) * heightScale
+
+                        if (hasPrev && gx >= prevGx) {
+                            canvas.drawLine(prevGx, prevGy, gx, gy, ghostPaint)
+                        }
+                        prevGx = gx
+                        prevGy = gy
+                        hasPrev = true
+                    }
+                }
+            }
+
             // ── DRAW PITCH TRACE (VPM-style hardware-accelerated drawLines) ──
             if (saFrequency > 0f) {
                 val numPoints = pitchHistory.copyVisibleWindow(startTime, endTime, windowScratch)
@@ -481,14 +574,14 @@ fun PitchGraph(
                     var prevX = 0f
                     var prevY = 0f
                     var prevTime = 0L
-                    var prevCents = -1f
+                    var prevCents = Float.NaN
 
                     var hasValidVoicedPoint = false
                     var inGap = false
                     var gapStartTime = 0L
                     var gapStartX = 0f
                     var gapStartY = 0f
-                    var gapStartCents = -1f
+                    var gapStartCents = Float.NaN
                     var gapSawConfirmedSilence = false
 
                     for (i in 0 until numPoints) {
@@ -506,7 +599,7 @@ fun PitchGraph(
                                 gapStartY = prevY
                                 gapStartCents = prevCents
                             }
-                            prevCents = -1f
+                            prevCents = Float.NaN
                             continue
                         }
 
@@ -522,8 +615,8 @@ fun PitchGraph(
 
                             if (inGap) {
                                 val gapDurationMs = timeMs - gapStartTime
-                                val centsDiff = kotlin.math.abs(visualCent - gapStartCents)
-                                val isPlausible = centsDiff <= maxPlausibleDeltaCents(gapDurationMs)
+                                val centsDiff = if (gapStartCents.isNaN()) Float.MAX_VALUE else kotlin.math.abs(visualCent - gapStartCents)
+                                val isPlausible = centsDiff <= minOf(180.0, maxPlausibleDeltaCents(gapDurationMs))
 
                                 // Allow visual bridging ONLY when:
                                 // gap <= 80 ms, valid voiced points exist on BOTH sides,
@@ -544,7 +637,7 @@ fun PitchGraph(
                             if (!connected) {
                                 val dtMs = (timeMs - prevTime).coerceAtLeast(0L)
                                 val maxAllowedDeltaCents = maxPlausibleDeltaCents(dtMs)
-                                if (prevCents < 0f || kotlin.math.abs(visualCent - prevCents) > maxAllowedDeltaCents || x < prevX) {
+                                if (prevCents.isNaN() || kotlin.math.abs(visualCent - prevCents) > maxAllowedDeltaCents || x < prevX) {
                                     // Discontinuity break, unvoiced transition, or isolated note:
                                     // Render round point cap without connecting across discontinuity
                                     linePts[ptIdx] = x
@@ -583,17 +676,33 @@ fun PitchGraph(
                                 Shader.TileMode.CLAMP
                             )
                             cachedShader = shader
+                            outerBloomPaint.shader = shader
                             glowPaint.shader = shader
                             corePaint.shader = shader
                         }
 
                         val nativeCanvas = drawContext.canvas.nativeCanvas
 
-                        // Pass 1: Glow trace (wider stroke with soft alpha)
+                        outerBloomPaint.shader = cachedShader
+                        // Pass 0: Wide atmospheric plasma bloom
+                        nativeCanvas.drawLines(linePts, 0, ptIdx, outerBloomPaint)
+                        // Pass 1: Mid glow trace
                         nativeCanvas.drawLines(linePts, 0, ptIdx, glowPaint)
-
-                        // Pass 2: Core sharp trace (crisp center stroke)
+                        // Pass 2: Core sharp trace
                         nativeCanvas.drawLines(linePts, 0, ptIdx, corePaint)
+
+                        if (isLive && hasValidVoicedPoint && (endTime - prevTime) < 120L) {
+                            drawCircle(
+                                color = primaryColor.copy(alpha = 0.28f),
+                                radius = 9.dp.toPx(),
+                                center = Offset(prevX, prevY)
+                            )
+                            drawCircle(
+                                color = Color.White,
+                                radius = 3.2.dp.toPx(),
+                                center = Offset(prevX, prevY)
+                            )
+                        }
                     }
                 }
             }

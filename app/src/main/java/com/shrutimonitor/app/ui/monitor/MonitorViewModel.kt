@@ -34,6 +34,15 @@ import kotlin.math.sin
 import com.shrutimonitor.app.audio.PitchRingBuffer
 import com.shrutimonitor.app.audio.DisplayPitchFilter
 import com.shrutimonitor.app.audio.PitchPipelineTelemetry
+import com.shrutimonitor.app.audio.GamakaAnalyzer
+import com.shrutimonitor.app.audio.GamakaMetrics
+import com.shrutimonitor.app.audio.GhostTraceData
+import com.shrutimonitor.app.audio.RiyazScorecardTracker
+import com.shrutimonitor.app.audio.RiyazSessionSummary
+import com.shrutimonitor.app.audio.SavedSessionInfo
+import com.shrutimonitor.app.audio.SessionLibraryManager
+import com.shrutimonitor.app.data.FluteRegister
+import com.shrutimonitor.app.data.InstrumentCategory
 
 /**
  * UI State for the pitch monitor screen.
@@ -58,7 +67,19 @@ data class MonitorUiState(
     val saNoteName: String = SettingsRepository.DEFAULT_SA_NOTE_NAME,
     val saOctave: Int = SettingsRepository.DEFAULT_SA_OCTAVE,
     val showControls: Boolean = true,
-    val inTuneTolerance: Float = SettingsRepository.DEFAULT_IN_TUNE_TOLERANCE
+    val inTuneTolerance: Float = SettingsRepository.DEFAULT_IN_TUNE_TOLERANCE,
+    val shrutiName: String = "",
+    val gamakaMetrics: GamakaMetrics = GamakaMetrics(),
+    val rmsAmplitude: Float = 0f,
+    val harmonicBrightness: Float = 0f,
+    val instrumentCategory: InstrumentCategory = InstrumentCategory.VOCAL,
+    val shaderVisualsEnabled: Boolean = true,
+    val isVarjyaWarning: Boolean = false,
+    val riyazSummary: RiyazSessionSummary = RiyazSessionSummary(),
+    val savedSessions: List<SavedSessionInfo> = emptyList(),
+    val activeGhostTrace: GhostTraceData? = null,
+    val activeGhostSessionId: String? = null,
+    val playingSessionId: String? = null
 )
 
 /**
@@ -80,10 +101,28 @@ class MonitorViewModel(application: Application) : AndroidViewModel(application)
     private val pitchDetector = McLeodPitchDetector()
     private val swaraMapper = SwaraMapper()
     private val sessionRecorder = SessionRecorder(application)
+    private val scorecardTracker = RiyazScorecardTracker()
+    private val sessionLibraryManager = SessionLibraryManager(application)
 
     private val maxHistoryPoints = 1200 // ~1 minute at 20fps or ~30s at 40fps
     private val pitchHistory = PitchRingBuffer(maxHistoryPoints)
     private val displayPitchFilter = DisplayPitchFilter()
+    private val gamakaAnalyzer = GamakaAnalyzer()
+
+    private fun applyInstrumentDspProfile(category: InstrumentCategory, currentSa: Float) {
+        if (category == InstrumentCategory.BAMBOO_FLUTE) {
+            val reg = FluteRegister.forFrequency(currentSa)
+            pitchDetector.clarityThreshold = reg.clarityThreshold
+            pitchDetector.minFrequency = reg.minFreqHz
+            pitchDetector.maxFrequency = reg.maxFreqHz
+            pitchDetector.rmsGate = reg.rmsNoiseGate
+        } else {
+            pitchDetector.clarityThreshold = category.mpmClarityThreshold
+            pitchDetector.minFrequency = category.minFreqHz
+            pitchDetector.maxFrequency = category.maxFreqHz
+            pitchDetector.rmsGate = category.rmsNoiseGate
+        }
+    }
 
     private val _uiState = MutableStateFlow(MonitorUiState(pitchHistory = pitchHistory))
     val uiState: StateFlow<MonitorUiState> = _uiState.asStateFlow()
@@ -104,7 +143,19 @@ class MonitorViewModel(application: Application) : AndroidViewModel(application)
             settingsRepository.saFrequency.collect { freq ->
                 saFrequency = freq
                 sessionRecorder.saFrequency = freq
+                applyInstrumentDspProfile(_uiState.value.instrumentCategory, freq)
                 _uiState.update { it.copy(saFrequency = freq) }
+            }
+        }
+        viewModelScope.launch {
+            settingsRepository.instrumentCategory.collect { category ->
+                applyInstrumentDspProfile(category, saFrequency)
+                _uiState.update { it.copy(instrumentCategory = category) }
+            }
+        }
+        viewModelScope.launch {
+            settingsRepository.shaderVisualsEnabled.collect { enabled ->
+                _uiState.update { it.copy(shaderVisualsEnabled = enabled) }
             }
         }
         viewModelScope.launch {
@@ -242,6 +293,14 @@ class MonitorViewModel(application: Application) : AndroidViewModel(application)
 
                 if (filteredFreq > 0f) {
                     val swaraResult = swaraMapper.mapFrequency(saFrequency, filteredFreq, currentTuningPreset)
+                    val gamaka = gamakaAnalyzer.pushAndAnalyze(detectorTimestampMs, filteredFreq, saFrequency)
+
+                    val varjyaWarn = scorecardTracker.recordFrame(
+                        swaraIndex = swaraResult.swaraIndex,
+                        centDeviation = swaraResult.centDeviation,
+                        inTuneTolerance = _uiState.value.inTuneTolerance,
+                        activeRagaSwaras = _uiState.value.activeRagaSwaras
+                    )
 
                     // Map to display models
                     val info = SwaraInfo(
@@ -258,8 +317,13 @@ class MonitorViewModel(application: Application) : AndroidViewModel(application)
                     _uiState.update { state ->
                         state.copy(
                             currentSwara = info,
+                            shrutiName = swaraResult.shrutiName,
                             centDeviation = swaraResult.centDeviation,
                             frequency = filteredFreq,
+                            gamakaMetrics = gamaka,
+                            rmsAmplitude = pitchResult.rmsAmplitude,
+                            harmonicBrightness = pitchResult.harmonicBrightness,
+                            isVarjyaWarning = varjyaWarn,
                             pitchHistory = pitchHistory,
                             historyVersion = state.historyVersion + 1
                         )
@@ -271,6 +335,8 @@ class MonitorViewModel(application: Application) : AndroidViewModel(application)
                     }
 
                 } else {
+                    gamakaAnalyzer.reset()
+                    scorecardTracker.clearVarjyaOnSilence()
                     // Store rejected frames as explicit UNVOICED/GAP markers. Do NOT convert them into normal 0 Hz pitch samples inside history.
                     val rms = PitchPipelineTelemetry.computeRms(capturedFrame.samples)
                     val gapMarker = if (rms < 0.005f) PitchRingBuffer.SILENCE_GAP else PitchRingBuffer.UNVOICED_GAP
@@ -279,8 +345,13 @@ class MonitorViewModel(application: Application) : AndroidViewModel(application)
                     _uiState.update { state ->
                         state.copy(
                             currentSwara = null,
+                            shrutiName = "",
                             frequency = 0f,
                             centDeviation = 0f,
+                            gamakaMetrics = GamakaMetrics(),
+                            rmsAmplitude = 0f,
+                            harmonicBrightness = 0f,
+                            isVarjyaWarning = false,
                             pitchHistory = pitchHistory,
                             historyVersion = state.historyVersion + 1
                         )
@@ -326,6 +397,7 @@ class MonitorViewModel(application: Application) : AndroidViewModel(application)
         sessionRecorder.stopRecording()
         stopRecordingTimer()
         _uiState.update { it.copy(isRecording = false, recordingDuration = 0L) }
+        refreshRiyazStudio()
     }
 
     private fun startRecordingTimer() {
@@ -454,9 +526,82 @@ class MonitorViewModel(application: Application) : AndroidViewModel(application)
         super.onCleared()
         audioCaptureManager.stop()
         sessionRecorder.stopRecording()
+        sessionLibraryManager.stopSessionAudio()
         stopAudioProcessing()
         stopRecordingTimer()
         stopPitchSimulation()
+    }
+
+    // ── Riyaz Studio & Ghost-Trace Replay ─────────────────────────────
+
+    fun refreshRiyazStudio() {
+        val sessions = sessionLibraryManager.listSavedSessions()
+        val summary = scorecardTracker.buildSummary()
+        _uiState.update {
+            it.copy(
+                savedSessions = sessions,
+                riyazSummary = summary
+            )
+        }
+    }
+
+    fun resetScorecard() {
+        scorecardTracker.reset()
+        _uiState.update {
+            it.copy(
+                riyazSummary = scorecardTracker.buildSummary(),
+                isVarjyaWarning = false
+            )
+        }
+    }
+
+    fun toggleGhostTrace(session: SavedSessionInfo) {
+        if (_uiState.value.activeGhostSessionId == session.id) {
+            _uiState.update {
+                it.copy(
+                    activeGhostSessionId = null,
+                    activeGhostTrace = null
+                )
+            }
+        } else {
+            val trace = sessionLibraryManager.loadGhostTrace(session)
+            _uiState.update {
+                it.copy(
+                    activeGhostSessionId = session.id,
+                    activeGhostTrace = trace
+                )
+            }
+        }
+    }
+
+    fun togglePlaySession(session: SavedSessionInfo) {
+        if (_uiState.value.playingSessionId == session.id) {
+            sessionLibraryManager.stopSessionAudio()
+            _uiState.update { it.copy(playingSessionId = null) }
+        } else {
+            _uiState.update { it.copy(playingSessionId = session.id) }
+            sessionLibraryManager.playSessionAudio(session) {
+                _uiState.update { state ->
+                    if (state.playingSessionId == session.id) state.copy(playingSessionId = null) else state
+                }
+            }
+        }
+    }
+
+    fun deleteSavedSession(session: SavedSessionInfo) {
+        sessionLibraryManager.deleteSession(session)
+        _uiState.update { state ->
+            val updated = state.savedSessions.filterNot { it.id == session.id }
+            val newGhostTrace = if (state.activeGhostSessionId == session.id) null else state.activeGhostTrace
+            val newGhostId = if (state.activeGhostSessionId == session.id) null else state.activeGhostSessionId
+            val newPlayingId = if (state.playingSessionId == session.id) null else state.playingSessionId
+            state.copy(
+                savedSessions = updated,
+                activeGhostTrace = newGhostTrace,
+                activeGhostSessionId = newGhostId,
+                playingSessionId = newPlayingId
+            )
+        }
     }
 
     /**
@@ -476,5 +621,13 @@ class MonitorViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             settingsRepository.updateMonitorControlsVisible(visible)
         }
+    }
+
+    fun selectInstrumentCategory(category: InstrumentCategory) {
+        viewModelScope.launch { settingsRepository.updateInstrumentCategory(category) }
+    }
+
+    fun updateShaderVisuals(enabled: Boolean) {
+        viewModelScope.launch { settingsRepository.updateShaderVisualsEnabled(enabled) }
     }
 }

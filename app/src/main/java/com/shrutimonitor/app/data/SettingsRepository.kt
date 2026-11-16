@@ -65,6 +65,8 @@ class SettingsRepository(private val context: Context) {
         val USER_EXPLICIT_TUNING = booleanPreferencesKey("user_explicit_tuning")
         val LAST_UPDATE_CHECK_TIME = longPreferencesKey("last_update_check_time")
         val IGNORED_UPDATE_VERSION = stringPreferencesKey("ignored_update_version")
+        val INSTRUMENT_CATEGORY = stringPreferencesKey("instrument_category")
+        val SHADER_VISUALS_ENABLED = booleanPreferencesKey("shader_visuals_enabled")
     }
 
     // ── Default Values ────────────────────────────────────────────────
@@ -87,9 +89,19 @@ class SettingsRepository(private val context: Context) {
         const val DEFAULT_TANPURA_432HZ: Boolean = false
         const val DEFAULT_LAST_UPDATE_CHECK_TIME: Long = 0L
         const val DEFAULT_IGNORED_UPDATE_VERSION: String = ""
+        val DEFAULT_INSTRUMENT_CATEGORY: InstrumentCategory = InstrumentCategory.VOCAL
+        const val DEFAULT_SHADER_VISUALS_ENABLED: Boolean = true
     }
 
     // ── Flows (read) ──────────────────────────────────────────────────
+
+    val instrumentCategory: Flow<InstrumentCategory> = context.dataStore.data.map { prefs ->
+        InstrumentCategory.fromId(prefs[Keys.INSTRUMENT_CATEGORY])
+    }
+
+    val shaderVisualsEnabled: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[Keys.SHADER_VISUALS_ENABLED] ?: DEFAULT_SHADER_VISUALS_ENABLED
+    }
 
     /**
      * The frequency of Sa in Hz. Default: 261.63 Hz (C4).
@@ -414,6 +426,18 @@ class SettingsRepository(private val context: Context) {
         }
     }
 
+    suspend fun updateInstrumentCategory(category: InstrumentCategory) {
+        context.dataStore.edit { prefs ->
+            prefs[Keys.INSTRUMENT_CATEGORY] = category.id
+        }
+    }
+
+    suspend fun updateShaderVisualsEnabled(enabled: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[Keys.SHADER_VISUALS_ENABLED] = enabled
+        }
+    }
+
     /**
      * Resets all settings to their default values.
      */
@@ -436,6 +460,8 @@ class SettingsRepository(private val context: Context) {
             prefs[Keys.TANPURA_432HZ] = DEFAULT_TANPURA_432HZ
             prefs[Keys.LAST_UPDATE_CHECK_TIME] = DEFAULT_LAST_UPDATE_CHECK_TIME
             prefs[Keys.IGNORED_UPDATE_VERSION] = DEFAULT_IGNORED_UPDATE_VERSION
+            prefs[Keys.INSTRUMENT_CATEGORY] = DEFAULT_INSTRUMENT_CATEGORY.id
+            prefs[Keys.SHADER_VISUALS_ENABLED] = DEFAULT_SHADER_VISUALS_ENABLED
         }
     }
 }

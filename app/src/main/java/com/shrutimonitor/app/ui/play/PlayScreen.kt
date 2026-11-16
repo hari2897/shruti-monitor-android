@@ -211,6 +211,12 @@ fun PlayScreen(
                         onFineTuningChange = { viewModel.setTanpuraFineTuning(it) },
                         is432HzMode = state.tanpura432Hz,
                         on432HzModeChange = { viewModel.setTanpura432Hz(it) },
+                        fiveStringMode = state.fiveStringMode,
+                        onFiveStringModeChange = { viewModel.setFiveStringMode(it) },
+                        dualTanpuraEnabled = state.dualTanpuraEnabled,
+                        onDualTanpuraChange = { viewModel.setDualTanpuraEnabled(it) },
+                        javariSpreadCents = state.javariSpreadCents,
+                        onJavariSpreadChange = { viewModel.setJavariSpreadCents(it) },
                         stringPluckTimestamps = state.stringPluckTimestamps
                     )
                 }

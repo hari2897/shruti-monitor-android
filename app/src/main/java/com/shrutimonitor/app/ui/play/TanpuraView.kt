@@ -87,7 +87,13 @@ fun TanpuraView(
     onFineTuningChange: (Float) -> Unit = {},
     is432HzMode: Boolean = false,
     on432HzModeChange: (Boolean) -> Unit = {},
-    stringPluckTimestamps: List<Long> = listOf(0L, 0L, 0L, 0L),
+    fiveStringMode: Boolean = true,
+    onFiveStringModeChange: (Boolean) -> Unit = {},
+    dualTanpuraEnabled: Boolean = false,
+    onDualTanpuraChange: (Boolean) -> Unit = {},
+    javariSpreadCents: Float = 2.2f,
+    onJavariSpreadChange: (Float) -> Unit = {},
+    stringPluckTimestamps: List<Long> = listOf(0L, 0L, 0L, 0L, 0L),
     modifier: Modifier = Modifier
 ) {
     val scrollState = rememberScrollState()
@@ -176,7 +182,7 @@ fun TanpuraView(
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    text = "4-string additive synthesis",
+                    text = "5-String & Dual Javari Engine",
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -273,7 +279,7 @@ fun TanpuraView(
                     Canvas(modifier = Modifier.fillMaxSize()) {
                         val w = size.width
                         val h = size.height
-                        val numStrings = 4
+                        val numStrings = if (fiveStringMode) 5 else 4
                         val padding = w * 0.1f
                         val spacing = (w - 2 * padding) / (numStrings - 1)
 
@@ -281,7 +287,8 @@ fun TanpuraView(
                             0.0f,
                             (PI / 4).toFloat(),
                             (PI / 2).toFloat(),
-                            (3 * PI / 4).toFloat()
+                            (3 * PI / 4).toFloat(),
+                            PI.toFloat()
                         )
 
                         for (i in 0 until numStrings) {
@@ -483,6 +490,115 @@ fun TanpuraView(
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontWeight = FontWeight.Bold
+                    )
+                }
+
+                // Javari Bridge Shimmer (Micro-Detuning)
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "Javari Bridge Shimmer (Micro-Detuning)",
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.align(Alignment.Start)
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Tune,
+                        contentDescription = "Javari Dispersion",
+                        tint = MaterialTheme.colorScheme.secondary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Slider(
+                        value = javariSpreadCents,
+                        onValueChange = { newSpread ->
+                            HapticManager.tick(view)
+                            onJavariSpreadChange(newSpread)
+                        },
+                        valueRange = 0.0f..5.0f,
+                        colors = SliderDefaults.colors(
+                            thumbColor = MaterialTheme.colorScheme.secondary,
+                            activeTrackColor = MaterialTheme.colorScheme.secondary,
+                            inactiveTrackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                        ),
+                        modifier = Modifier.weight(1f)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = String.format(java.util.Locale.US, "%.1f¢", javariSpreadCents),
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                // 5-String Classical Cycle Switch
+                Spacer(modifier = Modifier.height(16.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "5-String Classical Cycle",
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Text(
+                            text = "Adds traditional 5th string (Ni/Dha) to cycle",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    androidx.compose.material3.Switch(
+                        checked = fiveStringMode,
+                        onCheckedChange = {
+                            HapticManager.tick(view)
+                            onFiveStringModeChange(it)
+                        },
+                        colors = androidx.compose.material3.SwitchDefaults.colors(
+                            checkedThumbColor = MaterialTheme.colorScheme.primary,
+                            checkedTrackColor = MaterialTheme.colorScheme.primaryContainer
+                        )
+                    )
+                }
+
+                // Dual Tanpura Jugalbandi Switch
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Dual Tanpura Jugalbandi",
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Text(
+                            text = "Layers secondary acoustic drone voice with stereo depth",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    androidx.compose.material3.Switch(
+                        checked = dualTanpuraEnabled,
+                        onCheckedChange = {
+                            HapticManager.tick(view)
+                            onDualTanpuraChange(it)
+                        },
+                        colors = androidx.compose.material3.SwitchDefaults.colors(
+                            checkedThumbColor = MaterialTheme.colorScheme.primary,
+                            checkedTrackColor = MaterialTheme.colorScheme.primaryContainer
+                        )
                     )
                 }
 

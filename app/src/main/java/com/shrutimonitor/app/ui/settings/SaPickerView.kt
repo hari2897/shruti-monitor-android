@@ -3,6 +3,7 @@ package com.shrutimonitor.app.ui.settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -17,6 +18,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
@@ -29,6 +31,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -43,11 +46,30 @@ import com.shrutimonitor.app.ui.theme.WhiteKeyColor
 import com.shrutimonitor.app.util.HapticManager
 import java.util.Locale
 
+private data class KattaiPreset(val kattai: String, val note: String, val label: String)
+
+private val KATTAI_PRESETS = listOf(
+    KattaiPreset("1", "C", "1 Kattai C"),
+    KattaiPreset("1½", "C#", "1½ C#"),
+    KattaiPreset("2", "D", "2 D"),
+    KattaiPreset("2½", "D#", "2½ D#"),
+    KattaiPreset("3", "E", "3 E"),
+    KattaiPreset("4", "F", "4 F"),
+    KattaiPreset("4½", "F#", "4½ F#"),
+    KattaiPreset("5", "G", "5 G"),
+    KattaiPreset("5½", "G#", "5½ G#"),
+    KattaiPreset("6", "A", "6 A"),
+    KattaiPreset("6½", "A#", "6½ A#"),
+    KattaiPreset("7", "B", "7 B")
+)
+
 /**
  * Visual Tonic Sa selector. Features:
  * - Prominent frequency Hz display
- * - Octave shifting control (C1 to C5)
- * - Compact responsive 1-octave piano strip (C to B) for note selection
+ * - Micro-step fine tuning (-1, -0.1, +0.1, +1 Hz)
+ * - Octave shifting control (Octaves 2 to 5)
+ * - Carnatic Kattai / Safed Quick-Select Row (1 Kattai C to 7 B)
+ * - Compact responsive 1-octave piano strip (C to B) for note selection without restrictions
  */
 @Composable
 fun SaPickerView(
@@ -57,7 +79,7 @@ fun SaPickerView(
     onTonicChange: (Float, String, Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val noteNames = listOf("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")
+    val noteNames = remember { listOf("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B") }
     val view = LocalView.current
     
     // Maps white key index in an octave back to chromatic index (0-11)
@@ -105,7 +127,45 @@ fun SaPickerView(
                 fontWeight = FontWeight.Medium
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Micro-step fine tuning row (-1 Hz, -0.1 Hz, +0.1 Hz, +1 Hz)
+            Row(
+                modifier = Modifier.fillMaxWidth(0.9f),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                val stepDeltas = floatArrayOf(-1.0f, -0.1f, 0.1f, 1.0f)
+                val stepLabels = arrayOf("-1 Hz", "-0.1 Hz", "+0.1 Hz", "+1 Hz")
+                for (idx in stepDeltas.indices) {
+                    val delta = stepDeltas[idx]
+                    val label = stepLabels[idx]
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(32.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+                            .clickable {
+                                HapticManager.tick(view)
+                                val newFreq = kotlin.math.round((saFrequency + delta) * 100f) / 100f
+                                if (newFreq > 20f) {
+                                    onTonicChange(newFreq, saNoteName, saOctave)
+                                }
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = label,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
 
             // Octave Selector Row
             Row(
@@ -119,10 +179,8 @@ fun SaPickerView(
                         HapticManager.tick(view)
                         if (canDecreaseOctave) {
                             val newOct = saOctave - 1
-                            val newNoteName = if (newOct == 2 && activeNoteIndex < 9) "A" else saNoteName
-                            val newNoteIdx = if (newOct == 2 && activeNoteIndex < 9) 9 else activeNoteIndex
-                            val newFreq = calculateFrequency(newNoteIdx, newOct)
-                            onTonicChange(newFreq, newNoteName, newOct)
+                            val newFreq = calculateFrequency(activeNoteIndex, newOct)
+                            onTonicChange(newFreq, saNoteName, newOct)
                         }
                     },
                     enabled = canDecreaseOctave
@@ -160,6 +218,65 @@ fun SaPickerView(
                 }
             }
 
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Carnatic Kattai / Safed Quick-Select Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Start
+            ) {
+                Text(
+                    text = "Kattai / Safed Quick-Select",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            val scrollState = rememberScrollState()
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(scrollState),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                for (item in KATTAI_PRESETS) {
+                    val isSelected = saNoteName == item.note
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(
+                                if (isSelected) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.6f)
+                            )
+                            .border(
+                                width = 1.dp,
+                                color = if (isSelected) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                            .clickable {
+                                HapticManager.tick(view)
+                                val noteIdx = noteNames.indexOf(item.note)
+                                val newFreq = calculateFrequency(noteIdx, saOctave)
+                                onTonicChange(newFreq, item.note, saOctave)
+                            }
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = item.label,
+                            fontSize = 11.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                            color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
+            }
+
             Spacer(modifier = Modifier.height(16.dp))
 
             // Compact Responsive Visual Piano Strip (fits fully on screen)
@@ -180,8 +297,6 @@ fun SaPickerView(
                         val noteIdx = whiteToChromaticMap[wk]
                         val name = noteNames[noteIdx]
                         val isSelected = saNoteName == name
-                        val keyFreq = calculateFrequency(noteIdx, saOctave)
-                        val isKeyEnabled = keyFreq >= 109.9f
 
                         Box(
                             modifier = Modifier
@@ -193,8 +308,6 @@ fun SaPickerView(
                                 .background(
                                     if (isSelected) {
                                         MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)
-                                    } else if (!isKeyEnabled) {
-                                        WhiteKeyColor.copy(alpha = 0.35f)
                                     } else {
                                         WhiteKeyColor
                                     }
@@ -204,7 +317,7 @@ fun SaPickerView(
                                     color = if (isSelected) MaterialTheme.colorScheme.primary else Color(0xFFD0C9BC),
                                     shape = RoundedCornerShape(bottomStart = 4.dp, bottomEnd = 4.dp)
                                 )
-                                .clickable(enabled = isKeyEnabled) {
+                                .clickable {
                                     HapticManager.tick(view)
                                     val newFreq = calculateFrequency(noteIdx, saOctave)
                                     onTonicChange(newFreq, name, saOctave)
@@ -227,8 +340,6 @@ fun SaPickerView(
                                     text = name,
                                     color = if (isSelected) {
                                         MaterialTheme.colorScheme.primary
-                                    } else if (!isKeyEnabled) {
-                                        Color.Black.copy(alpha = 0.25f)
                                     } else {
                                         Color.Black
                                     },
@@ -253,8 +364,6 @@ fun SaPickerView(
                         }
                         val name = noteNames[noteIdx]
                         val isSelected = saNoteName == name
-                        val keyFreq = calculateFrequency(noteIdx, saOctave)
-                        val isKeyEnabled = keyFreq >= 109.9f
 
                         // Horizontal offset: (wk + 1) * whiteKeyWidth - halfBlackWidth
                         val xOffset = whiteKeyWidth * (wk + 1) - halfBlackWidth
@@ -269,8 +378,6 @@ fun SaPickerView(
                                 .background(
                                     if (isSelected) {
                                         MaterialTheme.colorScheme.primary
-                                    } else if (!isKeyEnabled) {
-                                        BlackKeyColor.copy(alpha = 0.35f)
                                     } else {
                                         BlackKeyColor
                                     }
@@ -280,7 +387,7 @@ fun SaPickerView(
                                     color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Black,
                                     shape = RoundedCornerShape(bottomStart = 3.dp, bottomEnd = 3.dp)
                                 )
-                                .clickable(enabled = isKeyEnabled) {
+                                .clickable {
                                     HapticManager.tick(view)
                                     val newFreq = calculateFrequency(noteIdx, saOctave)
                                     onTonicChange(newFreq, name, saOctave)
@@ -291,8 +398,6 @@ fun SaPickerView(
                                 text = name,
                                 color = if (isSelected) {
                                     Color.Black
-                                } else if (!isKeyEnabled) {
-                                    Color.White.copy(alpha = 0.25f)
                                 } else {
                                     Color.White.copy(alpha = 0.7f)
                                 },

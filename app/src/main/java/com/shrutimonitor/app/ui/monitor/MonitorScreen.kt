@@ -4,6 +4,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,9 +16,14 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Analytics
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.Timeline
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
@@ -32,6 +38,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import com.shrutimonitor.app.ui.theme.OutOfTuneCoral
 import com.shrutimonitor.app.ui.theme.TextSecondary
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -49,6 +56,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.shrutimonitor.app.data.InstrumentCategory
 import com.shrutimonitor.app.ui.settings.SaPickerView
 import com.shrutimonitor.app.util.HapticManager
 
@@ -76,6 +84,8 @@ fun MonitorScreen(
     val context = LocalContext.current
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var showSaBottomSheet by remember { mutableStateOf(false) }
+    var showInstrumentSheet by remember { mutableStateOf(false) }
+    var showRiyazStudioSheet by remember { mutableStateOf(false) }
     val showBottomDrawer = state.showControls
     val view = LocalView.current
 
@@ -142,10 +152,13 @@ fun MonitorScreen(
                 saNoteName = state.saNoteName,
                 saOctave = state.saOctave,
                 inTuneTolerance = state.inTuneTolerance,
-                modifier = Modifier.padding(horizontal = 16.dp)
+                shrutiName = state.shrutiName,
+                gamakaMetrics = state.gamakaMetrics,
+                frequencyHz = state.frequency,
+                modifier = Modifier.padding(horizontal = 12.dp)
             )
 
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(2.dp))
 
             // 2. Thin Horizontal Pitch positions slider (36dp height)
             val centsFromSa = if (state.frequency > 0f) {
@@ -161,14 +174,13 @@ fun MonitorScreen(
                 modifier = Modifier.padding(horizontal = 16.dp)
             )
 
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(2.dp))
 
             // 3. Real-time scrolling pitch trace Graph (fills remaining vertical space)
             Box(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp)
             ) {
                 PitchGraph(
                     pitchHistory = state.pitchHistory,
@@ -178,6 +190,11 @@ fun MonitorScreen(
                     autoFollow = state.autoFollow,
                     nomenclature = state.nomenclature,
                     tuningPreset = state.tuningPreset,
+                    rmsAmplitude = state.rmsAmplitude,
+                    harmonicBrightness = state.harmonicBrightness,
+                    inTuneFactor = if (state.currentSwara != null && kotlin.math.abs(state.centDeviation) <= state.inTuneTolerance) 1f else 0f,
+                    shaderVisualsEnabled = state.shaderVisualsEnabled,
+                    ghostTrace = state.activeGhostTrace,
                     onLiveClick = onLiveClick,
                     onScrollStart = onScrollStart,
                     onAutoFollowToggle = onAutoFollowToggle,
@@ -186,84 +203,166 @@ fun MonitorScreen(
 
                 // ── FLOATING OVERLAYS ON TOP OF GRAPH ──
                 if (showBottomDrawer) {
-                    // Floating Reference Chips (Top Left of Graph)
                     Row(
                         modifier = Modifier
-                            .align(Alignment.TopStart)
-                            .padding(12.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            .fillMaxWidth()
+                            .align(Alignment.TopCenter)
+                            .padding(horizontal = 10.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Floating Tonic Selector Chip
-                        AssistChip(
-                            onClick = {
-                                HapticManager.tick(view)
-                                showSaBottomSheet = true
-                            },
-                            label = {
-                                Text(
-                                    text = "${state.saNoteName}${state.saOctave} (${String.format(java.util.Locale.US, "%.1f", state.saFrequency)} Hz)",
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 11.sp
-                                )
-                            },
-                            leadingIcon = {
-                                Icon(
-                                    imageVector = Icons.Default.Tune,
-                                    contentDescription = "Tonic Reference",
-                                    modifier = Modifier.size(14.dp)
-                                )
-                            },
-                            colors = AssistChipDefaults.assistChipColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.85f),
-                                labelColor = MaterialTheme.colorScheme.primary,
-                                leadingIconContentColor = MaterialTheme.colorScheme.primary
-                            ),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f))
-                        )
+                        // 1. Tonic Sa Pill
+                        Row(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.88f))
+                                .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.45f), RoundedCornerShape(10.dp))
+                                .clickable {
+                                    HapticManager.tick(view)
+                                    showSaBottomSheet = true
+                                }
+                                .padding(horizontal = 9.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Tune,
+                                contentDescription = "Tonic",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(13.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "${state.saNoteName}${state.saOctave} (${String.format(java.util.Locale.US, "%.1f", state.saFrequency)})",
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.sp,
+                                maxLines = 1
+                            )
+                        }
 
-                        // Floating Tuning Preset Cycle Chip
-                        AssistChip(
-                            onClick = {
-                                HapticManager.tick(view)
-                                viewModel.cycleTuningPreset()
-                            },
-                            label = {
-                                Text(
-                                    text = state.tuningPreset.shortName,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 11.sp
+                        // 2. Tuning Preset Pill
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.88f))
+                                .border(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.45f), RoundedCornerShape(10.dp))
+                                .clickable {
+                                    HapticManager.tick(view)
+                                    viewModel.cycleTuningPreset()
+                                }
+                                .padding(horizontal = 9.dp, vertical = 6.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = state.tuningPreset.shortName,
+                                color = MaterialTheme.colorScheme.secondary,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.sp,
+                                maxLines = 1
+                            )
+                        }
+
+                        // 3. Instrument Profile Pill
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.88f))
+                                .border(1.dp, MaterialTheme.colorScheme.tertiary.copy(alpha = 0.45f), RoundedCornerShape(10.dp))
+                                .clickable {
+                                    HapticManager.tick(view)
+                                    showInstrumentSheet = true
+                                }
+                                .padding(horizontal = 9.dp, vertical = 6.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = state.instrumentCategory.shortLabel,
+                                color = MaterialTheme.colorScheme.tertiary,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.sp,
+                                maxLines = 1
+                            )
+                        }
+
+                        // 4. Riyaz Studio / Scorecard Pill
+                        Row(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.88f))
+                                .border(1.dp, Color.White.copy(alpha = 0.22f), RoundedCornerShape(10.dp))
+                                .clickable {
+                                    HapticManager.tick(view)
+                                    viewModel.refreshRiyazStudio()
+                                    showRiyazStudioSheet = true
+                                }
+                                .padding(horizontal = 9.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Analytics,
+                                contentDescription = "Riyaz Studio & Scorecard",
+                                tint = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.size(13.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "Stats",
+                                color = MaterialTheme.colorScheme.onSurface,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.sp,
+                                maxLines = 1
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.weight(1f))
+
+                        // 5. Proper Microphone On/Off Button (Far Right)
+                        Box(
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(
+                                    if (state.isMicActive) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.9f)
+                                    else MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.88f)
                                 )
-                            },
-                            colors = AssistChipDefaults.assistChipColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.85f),
-                                labelColor = MaterialTheme.colorScheme.secondary,
-                                leadingIconContentColor = MaterialTheme.colorScheme.secondary
-                            ),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.4f))
-                        )
+                                .border(
+                                    width = 1.dp,
+                                    color = if (state.isMicActive) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                                    else Color.White.copy(alpha = 0.15f),
+                                    shape = RoundedCornerShape(10.dp)
+                                )
+                                .clickable {
+                                    HapticManager.heavyClick(view)
+                                    viewModel.toggleMic()
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = if (state.isMicActive) Icons.Default.Mic else Icons.Default.MicOff,
+                                contentDescription = if (state.isMicActive) "Microphone Active" else "Microphone Muted",
+                                tint = if (state.isMicActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
                     }
 
-                    // Floating Mic Status Toggle (Top Right of Graph)
-                    FilledTonalIconButton(
-                        onClick = {
-                            HapticManager.heavyClick(view)
-                            viewModel.toggleMic()
-                        },
-                        colors = androidx.compose.material3.IconButtonDefaults.filledTonalIconButtonColors(
-                            containerColor = if (state.isMicActive) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.85f) else MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.85f),
-                            contentColor = if (state.isMicActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                        ),
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(12.dp)
-                            .size(36.dp)
-                    ) {
-                        Icon(
-                            imageVector = if (state.isMicActive) Icons.Default.MusicNote else Icons.Default.Tune,
-                            contentDescription = "Toggle Microphone",
-                            modifier = Modifier.size(18.dp)
-                        )
+                    // Floating Varjya warning alert badge
+                    if (state.isVarjyaWarning && state.activeRagaName != null) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopCenter)
+                                .padding(top = 54.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(OutOfTuneCoral.copy(alpha = 0.92f))
+                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Text(
+                                text = "Varjya Swara (${state.currentSwara?.carnaticAbbr ?: ""}) — Outside ${state.activeRagaName}",
+                                color = Color.White,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
                 }
 
@@ -347,6 +446,48 @@ fun MonitorScreen(
                     viewModel.updateSaTonic(freq, name, oct)
                 },
                 modifier = Modifier.padding(16.dp)
+            )
+        }
+    }
+
+    if (showInstrumentSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showInstrumentSheet = false },
+            containerColor = MaterialTheme.colorScheme.background,
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ) {
+            InstrumentFluteSheet(
+                selectedCategory = state.instrumentCategory,
+                saFrequency = state.saFrequency,
+                saNoteName = state.saNoteName,
+                saOctave = state.saOctave,
+                shaderVisualsEnabled = state.shaderVisualsEnabled,
+                onSelectCategory = { viewModel.selectInstrumentCategory(it) },
+                onOpenSaPicker = {
+                    showInstrumentSheet = false
+                    showSaBottomSheet = true
+                },
+                onToggleShaderVisuals = { viewModel.updateShaderVisuals(it) }
+            )
+        }
+    }
+
+    if (showRiyazStudioSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showRiyazStudioSheet = false },
+            containerColor = MaterialTheme.colorScheme.background,
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ) {
+            RiyazStudioSheet(
+                summary = state.riyazSummary,
+                nomenclature = state.nomenclature,
+                savedSessions = state.savedSessions,
+                activeGhostSessionId = state.activeGhostSessionId,
+                playingSessionId = state.playingSessionId,
+                onResetScorecard = { viewModel.resetScorecard() },
+                onToggleGhostTrace = { viewModel.toggleGhostTrace(it) },
+                onTogglePlaySession = { viewModel.togglePlaySession(it) },
+                onDeleteSession = { viewModel.deleteSavedSession(it) }
             )
         }
     }

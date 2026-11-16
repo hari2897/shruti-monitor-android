@@ -23,3 +23,9 @@ Thumbs.db
 *.jar
 *.zip
 *.apk
+
+# Internal specs, dumps, and context files
+*_SPEC.md
+*_DUMP.md
+*_CONTEXT*.md
+GEMINI*.md

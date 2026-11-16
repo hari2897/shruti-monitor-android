@@ -4,6 +4,113 @@ All notable changes to the **Shruti Monitor** application are documented in this
 
 ---
 
+## [Version 2.1.0] - 2026-11-16
+
+### 🌟 Release Summary
+Version 2.1.0 is a milestone architectural release that introduces a native C++ Oboe audio synthesis engine with lossless impulse response soundbanks, background foreground playback service with notification controls, zero-allocation Radix-2 FFT McLeod pitch detection, real-time Gamaka & Meend ornament telemetry, 22-Shruti Sanskrit microtonal mapping, multi-instrument acoustic profiles with dynamic flute register calibration, and an interactive Riyaz Studio with per-swara accuracy scoring, Varjya forbidden note detection, and Ghost-Trace reference overlays.
+
+---
+
+### 🚀 Key Improvements & New Features
+
+#### 1. 🪕 High-Fidelity Native C++ Oboe Audio Engine & Lossless Soundbank
+- **Native C++ Audio Streaming**:
+  - Replaced the legacy Android `SoundPool` sample player with a high-performance native C++ audio engine (`liboboe.so` via `OboeEngine`).
+  - Achieves ultra-low audio latency and artifact-free continuous polyphonic synthesis.
+- **Lossless Acoustic Soundbank**:
+  - Integrated a high-fidelity 17.7 MB lossless acoustic Tanpura soundbank archive containing pristine impulse responses for male and female pitch registers.
+  - Replaced 160 compressed MP3 raw files with uncompressed, low-overhead native asset streaming (`noCompress += ["pak", "wav", "flac"]`).
+- **Continuous Microtonal Tonic Sa Synthesis**:
+  - Automatically folds any chosen Sa frequency into the optimal sounding MIDI note range ($67..88$) with sub-cent residual pitch tuning and 432 Hz reference alignment.
+- **5-String Classical Cycle Mode**:
+  - Adds an authentic 5th string (configurable for Pancham, Madhyam, or Nishad/Dhaivat tunings) to the traditional plucking sequence.
+- **Dual-Tanpura Jugalbandi Mode**:
+  - Layers a secondary acoustic Tanpura voice with subtle stereo panning ($\pm 0.48$) and Mandra/Swar harmonic reinforcement for immersive concert-hall resonance.
+- **Non-Linear Javari Bridge Dispersion**:
+  - Interactive slider ($0.0\text{¢} - 5.0\text{¢}$) applying microtonal acoustic dispersion between twin *Jod* Madhya Sa strings, producing an authentic shimmering Javari buzz instead of static digital unison.
+- **String Pluck Animation Synchronization**:
+  - Direct hardware callback dispatches real-time string pluck timestamps to Jetpack Compose for fluid transverse string oscillation animations.
+
+#### 2. 🔊 Background Foreground Playback Service (`DronePlaybackService`)
+- **Uninterrupted Riyaz**:
+  - Added an Android Media Playback Foreground Service (`DronePlaybackService`) allowing the Tanpura drone to play continuously when switching to other apps or when the screen is locked.
+- **Notification Shade Controls**:
+  - Ongoing rich media notification displaying current tonic (Sa), octave, and active tuning with one-tap Stop and Play controls.
+- **Target SDK 35 & Android 14/15 Compliance**:
+  - Fully compliant with `FOREGROUND_SERVICE_MEDIA_PLAYBACK` and `POST_NOTIFICATIONS` runtime permission models.
+
+#### 3. ⚡ Zero-Allocation Radix-2 FFT McLeod Pitch Method (MPM) Engine
+- **In-Place Radix-2 Cooley-Tukey FFT ($N=4096$)**:
+  - Replaced quadratic $O(N^2)$ direct-time lag searches with $O(N \log N)$ Wiener-Khinchin autocorrelation:
+    $$r(t) = \mathcal{F}^{-1}\left(|\mathcal{F}(x)|^2\right)$$
+  - Employs an $O(N)$ cumulative square-sum recurrence for the Normalized Square Difference Function (NSDF).
+- **Zero-GC Frame Buffer Pool**:
+  - `AudioCaptureManager` utilizes a pre-allocated circular pool of 8 reusable 2048-sample audio buffers, eliminating garbage collection pauses and frame drops during live performance.
+- **Sub-Sample Parabolic Peak Interpolation**:
+  - Computes sub-sample peak location with high clarity thresholding ($0.85$), eliminating octave jump errors.
+- **Harmonic Brightness & Overtone Analysis**:
+  - Extracts real-time overtone energy ($H_2 + H_3$ vs. fundamental $H_1$) directly from the NSDF half-lag correlation, capturing vocal resonance and timbre.
+
+#### 4. 🎻 Multi-Instrument DSP Acoustic Profiles & Dynamic Flute Register Calibration
+- **Dedicated Acoustic Profiles**:
+  - **Vocal Riyaz / Voice**: Tuned for human vocal acoustics ($65\text{ Hz} - 1100\text{ Hz}$), clarity threshold $0.85$, RMS noise gate $0.004$.
+  - **Bamboo Flute (Dynamic Register)**: Dynamically derives acoustic register from active Sa frequency across 4 distinct registers:
+    - *Deep Bass Register* ($<155\text{ Hz}$ Sa): captures deep fundamental resonance with relaxed transient gating.
+    - *Bass Register* ($155 - 215\text{ Hz}$ Sa): balances warm low-end tracking with overblown Tara octave protection.
+    - *Concert / Medium Register* ($215 - 340\text{ Hz}$ Sa): rejects embouchure breath chuffing and second-harmonic octave jumps.
+    - *Soprano / High Register* ($220 - 2800\text{ Hz}$ Sa): tight clarity threshold ($0.93$) for piccolo and high-register bansuris.
+  - **Saraswati Veena**: Tuned for plucked acoustic resonance ($70\text{ Hz} - 1400\text{ Hz}$) with fast attack response.
+  - **Acoustic Guitar**: Tuned for polyphonic string overtone separation ($75\text{ Hz} - 1350\text{ Hz}$).
+- **Instrument Bottom Sheet**:
+  - Instant one-tap switching directly from the Pitch Monitor screen via a dedicated instrument modal sheet.
+
+#### 5. 🌊 Gamaka & Meend Real-Time Microtonal Ornament Telemetry
+- **Continuous Sliding-Window Analysis**:
+  - Evaluates pitch contours over a rolling $460\text{ ms}$ analysis window at $43\text{ Hz}$ hop rate.
+- **Ornament Classification**:
+  - **Kampita (Oscillation)**: Measures oscillation frequency in Hz and peak-to-peak cent excursion width (e.g. `Kampita ~4.8 Hz (±42¢)`).
+  - **Jaaru / Meend (Glide)**: Detects fluid portamento transitions between swarasthanas.
+  - **Spurita / Nok (Accent)**: Identifies sharp microtonal touch accents.
+  - **Steady Swara**: Indicates sustained tonal stability.
+- **Live Display**:
+  - Surfaces detected gamaka metrics directly on the Swara Display Card in real time.
+
+#### 6. 🕉️ 22-Shruti (Dvaavimshati Shruti) Canonical Sanskrit Microtonal Mapping
+- **Full Canonical Reference Table (`Shruti22`)**:
+  - Incorporates the complete 22-Shruti microtonal system from Bharata's *Natyashastra*, Sarangadeva's *Sangita Ratnakara*, and Prof. Sambamoorthy.
+- **Live Shruti Identification**:
+  - Dynamically calculates nearest microtonal interval and displays the traditional Sanskrit Shruti name (*Tivra, Kumudvati, Manda, Chandovati, Dayavati, Ranjani, Ratika, Raudri, Krodha, Vajrika, Prasarini, Priti, Marjani, Kshiti, Rakta, Sandipini, Alapini, Madanti, Rohini, Ramya, Ugra, Kshobhini*) on the Swara card.
+
+#### 7. 📊 Riyaz Studio, Practice Scorecard & Ghost-Trace Replay Engine
+- **Riyaz Practice Scorecard**:
+  - Tracks intonation accuracy percentage per swara across all 12 chromatic degrees during active singing.
+  - Calculates mean signed cent deviation to identify whether a singer tends sharp or flat on specific swaras.
+  - Generates an overall weighted riyaz accuracy score for each practice session.
+- **Varjya Swara Real-Time Detection**:
+  - Automatically identifies forbidden (*varjya*) swaras that do not belong to the selected Raga.
+  - Triggers a prominent floating warning alert badge if a musician sustains a forbidden note for $\ge 275\text{ ms}$ (12 consecutive frames).
+- **Session Recording & Ghost-Trace Overlay**:
+  - Records sessions as `.m4a` audio with synchronized `.json` telemetry sidecars.
+  - **Ghost-Trace Replay**: Overlays a translucent reference pitch contour directly onto the live `PitchGraph`, enabling students to practice along with guru reference recordings or compare takes visually.
+
+#### 8. 🌌 GPU-Accelerated AGSL Aurora Resonance Shaders (Android 13+)
+- **Native GPU Shading**:
+  - Built with Android Graphics Shading Language (AGSL) running on the GPU at 60/120 FPS on Android 13, 14, and 15.
+- **Reactive Acoustic Plasma Field**:
+  - Visual resonance background reacts dynamically to vocal volume (RMS amplitude), harmonic overtone brightness, and intonation accuracy (blossoming into Mint Emerald when locking into swarasthanas).
+- **Multi-Layer Trace Bloom**:
+  - Rendered with wide atmospheric plasma bloom, mid glow trace, core sharp trace, and glowing live target dot.
+
+#### 9. 🎹 Enhanced Tonic (Sa) Calibration & Carnatic Kattai Strip
+- **Carnatic Kattai / Safed Quick-Select Strip**:
+  - Direct one-tap buttons for standard pitch standards: 1 Kattai (C), 1½ (C#), 2 (D), 2½ (D#), 3 (E), 4 (F), 4½ (F#), 5 (G), 5½ (G#), 6 (A), 6½ (A#), 7 (B).
+- **Micro-Step Frequency Tuning**:
+  - Precision buttons for `-1 Hz`, `-0.1 Hz`, `+0.1 Hz`, and `+1 Hz` fine adjustments.
+- **Unrestricted Pitch Range**:
+  - Full chromatic keyboard spanning octaves 2 through 5 without artificial sample limits.
+
+---
+
 ## [Version 1.2.0] - 2026-09-08
 
 ### 🌟 Release Summary
