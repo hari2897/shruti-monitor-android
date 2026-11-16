@@ -1,13 +1,17 @@
 # Shruti Monitor (श्रुति मॉनिटर / சுருதி மானிட்டர்)
 
 [![Release](https://img.shields.io/badge/Release-v2.1.0-FF8A00?style=for-the-badge&logo=android&logoColor=white)](https://github.com/hari2897/shruti-monitor-android/releases)
-[![Android](https://img.shields.io/badge/Platform-Android%208.0%2B%20(API%2026--35)-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://developer.android.com)
+[![Android](https://img.shields.io/badge/Platform-Android%208.0%2B%20(API%2026--36)-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://developer.android.com)
 [![Kotlin](https://img.shields.io/badge/Language-Kotlin%202.0-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white)](https://kotlinlang.org)
 [![Compose](https://img.shields.io/badge/UI-Jetpack%20Compose%20M3-4285F4?style=for-the-badge&logo=jetpackcompose&logoColor=white)](https://developer.android.com/jetpack/compose)
 [![Oboe](https://img.shields.io/badge/Audio-Native%20C%2B%2B%20Oboe%20NDK-00ACC1?style=for-the-badge&logo=c%2B%2B&logoColor=white)](https://github.com/google/oboe)
 [![License](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)](LICENSE)
 
 An advanced, high-performance Android application engineered for Indian classical vocalists and instrumentalists (Carnatic and Hindustani). **Shruti Monitor** combines an ultra-low latency, zero-allocation real-time pitch monitor with a **Native C++ Oboe Audio Engine**, 22-Shruti Sanskrit microtonal mapping, Gamaka/Meend ornament classification, multi-instrument acoustic profiles, and an interactive Riyaz Studio practice suite with Ghost-Trace session replay.
+
+<p align="center">
+  <img src="screenshots/hero_pitch_monitor.png" width="40%" alt="Shruti Monitor v2.1 Real-Time Pitch Monitor & Microtonal Canvas" />
+</p>
 
 ---
 
@@ -162,7 +166,7 @@ Before singing or playing the Tanpura, set your reference pitch (Tonic / Sa):
 - View classical Sanskrit Shruti names (*Tivra*, *Kumudvati*, *Manda*, *Chandovati*, *Dayavati*, *Ranjani*, *Ratika*, etc.) directly below the note abbreviation on the Swara card.
 
 ### 5. High-Fidelity Native C++ Tanpura Drone
-- Navigate to the **Play** tab and tap **START**.
+- Navigate to the **Instruments** tab and tap **START**.
 - **Plucking Speed & Volume**: Adjust the plucking speed factor ($0.5\times$ to $2.0\times$) and volume.
 - **First String (Jiva)**: Select **Pancham (Pa)**, **Madhyam (Ma)**, or **Nishad (Ni)** depending on the raga.
 - **5-String Classical Cycle**: Toggle the 5th string switch to expand the plucking cycle to 5 strings.
@@ -172,7 +176,7 @@ Before singing or playing the Tanpura, set your reference pitch (Tonic / Sa):
 - **Transverse String Vibrations**: Watch the physical string animation oscillate dynamically with every pluck.
 
 ### 6. Background Foreground Playback Service
-- Start the Tanpura drone in the **Play** tab and feel free to lock your phone or switch to lyric/sheet music apps.
+- Start the Tanpura drone in the **Instruments** tab and feel free to lock your phone or switch to lyric/sheet music apps.
 - The drone continues playing continuously without stutter.
 - Pull down the Android notification shade to view current tuning and pause/resume playback instantly.
 
