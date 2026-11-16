@@ -1,5 +1,4 @@
-# Shruti Monitor (श्रुति मॉनिटर / சுருதி மானிட்டர்)
-
+# Shruti Monitor
 [![Release](https://img.shields.io/badge/Release-v2.1.0-FF8A00?style=for-the-badge&logo=android&logoColor=white)](https://github.com/hari2897/shruti-monitor-android/releases)
 [![Android](https://img.shields.io/badge/Platform-Android%208.0%2B%20(API%2026--36)-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://developer.android.com)
 [![Kotlin](https://img.shields.io/badge/Language-Kotlin%202.0-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white)](https://kotlinlang.org)
